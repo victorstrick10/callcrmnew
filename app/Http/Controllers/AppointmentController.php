@@ -136,13 +136,14 @@ class AppointmentController extends Controller
 
         $companyShort = $company?->short_name
             ?: (explode(' ', trim((string) $company?->name))[0] ?? '');
-        $nameCountry = $appointment->country ?: $appointment->country_code;
+        $nameTime = $appointment->localStart()?->format('H:i') ?? '';
+        $nameCode = $appointment->country_code ?: $appointment->country;
 
         $geoName = $previewNumber >= 1
-            ? $names->geo($previewNumber, $fullName, $companyShort, $nameCountry, $appointment->region, $appointment->city)
+            ? $names->geo($previewNumber, $fullName, $companyShort, $nameTime, $nameCode, $appointment->region, $appointment->city)
             : null;
         $staticName = $previewNumber >= 1
-            ? $names->staticName($previewNumber, $fullName, $companyShort, $nameCountry, $appointment->region, $appointment->city)
+            ? $names->staticName($previewNumber, $fullName, $companyShort, $nameTime, $nameCode, $appointment->region, $appointment->city)
             : null;
 
         return [

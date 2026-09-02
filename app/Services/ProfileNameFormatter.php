@@ -6,28 +6,29 @@ class ProfileNameFormatter
 {
     /**
      * Profile name format:
-     *   001 - Name Surname <ShortCompany> GEO <Country> <Region> <City>
-     *   001 - Name Surname <ShortCompany> STATIC <Country> <Region> <City>
+     *   001 - Name Surname <ShortCompany> <HH:MM> GEO <CC> <Region> <City>
+     *   001 - Name Surname <ShortCompany> <HH:MM> STATIC <CC> <Region> <City>
      */
-    public function geo(int $number, string $fullName, string $companyShort = '', ?string $country = null, ?string $region = null, ?string $city = null): string
+    public function geo(int $number, string $fullName, string $companyShort = '', ?string $time = null, ?string $countryCode = null, ?string $region = null, ?string $city = null): string
     {
-        return $this->build($number, $fullName, $companyShort, 'GEO', $country, $region, $city);
+        return $this->build($number, $fullName, $companyShort, $time, 'GEO', $countryCode, $region, $city);
     }
 
-    public function staticName(int $number, string $fullName, string $companyShort = '', ?string $country = null, ?string $region = null, ?string $city = null): string
+    public function staticName(int $number, string $fullName, string $companyShort = '', ?string $time = null, ?string $countryCode = null, ?string $region = null, ?string $city = null): string
     {
-        return $this->build($number, $fullName, $companyShort, 'STATIC', $country, $region, $city);
+        return $this->build($number, $fullName, $companyShort, $time, 'STATIC', $countryCode, $region, $city);
     }
 
-    private function build(int $number, string $fullName, string $companyShort, string $suffix, ?string $country, ?string $region, ?string $city): string
+    private function build(int $number, string $fullName, string $companyShort, ?string $time, string $suffix, ?string $countryCode, ?string $region, ?string $city): string
     {
         $head = array_values(array_filter([
             trim($fullName),
             trim((string) $companyShort),
+            trim((string) $time),
         ], fn ($p) => $p !== ''));
 
         $location = array_values(array_filter([
-            trim((string) $country),
+            strtoupper(trim((string) $countryCode)),
             trim((string) $region),
             trim((string) $city),
         ], fn ($p) => $p !== ''));
