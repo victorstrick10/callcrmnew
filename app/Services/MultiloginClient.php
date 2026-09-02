@@ -146,10 +146,11 @@ class MultiloginClient
 
         $host = strtolower((string) (parse_url($url, PHP_URL_HOST) ?: ''));
         $port = parse_url($url, PHP_URL_PORT);
-        if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)
-            || $port === 45001
-            || str_contains($host, 'mlx.yt')
-            || str_contains(strtolower($url), 'launcher')) {
+
+        // The Multilogin cloud API is always on multilogin.com. Anything else
+        // (launcher, localhost, a wrong/self-test host, or :45001) is forced to
+        // the real API so it can never return HTTP 501 "Unsupported method".
+        if ($host === '' || $port === 45001 || ! str_ends_with($host, 'multilogin.com')) {
             return $default;
         }
 

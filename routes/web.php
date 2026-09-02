@@ -16,6 +16,30 @@ Route::get('/health', function () {
     return response('ok', 200);
 });
 
+// Temporary read-only diagnostic (no secrets) — remove after debugging.
+Route::get('/debug/ml/{k}', function (string $k) {
+    abort_unless($k === 'zx9k', 404);
+    $out = [];
+    foreach (\App\Models\Company::query()->get() as $c) {
+        $cfg = $c->multiloginConfig();
+        $client = app(\App\Services\MultiloginClient::class)->forCompany($c);
+        [$ok, $msg] = $client->pingToken();
+        $out[] = [
+            'company' => $c->name,
+            'col_base_url' => $c->multilogin_base_url,
+            'cfg_base_url' => $cfg['base_url'] ?? null,
+            'effective_base_url' => $client->base_url,
+            'workspace_id' => $cfg['workspace_id'] ?? null,
+            'simulation' => $client->simulation,
+            'token_present' => $client->token !== '',
+            'ping_ok' => $ok,
+            'ping_msg' => $msg,
+        ];
+    }
+
+    return response()->json($out);
+});
+
 Route::get('/', DashboardController::class)->name('dashboard');
 
 Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');
