@@ -1,7 +1,7 @@
 <aside class="sidebar" id="sidebar">
   <div class="brand">
-    <div class="brand-mark">O</div>
-    <div><strong>Orbit CRM</strong><span>Calendly × Multilogin</span></div>
+    <div class="brand-mark"><img src="{{ asset('logo.svg') }}" alt="Calendly Ai logo" width="42" height="42"></div>
+    <div><strong>Calendly Ai</strong><span>Calendly × Multilogin</span></div>
   </div>
   <nav>
     <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">◫ <span>Dashboard</span></a>

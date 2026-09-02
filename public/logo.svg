@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Calendly Ai logo">
+  <defs>
+    <linearGradient id="calaiBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2E6BFF"/>
+      <stop offset="1" stop-color="#12D0E0"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#calaiBg)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="15" y="18" width="34" height="30" rx="6"/>
+    <path d="M15 26 H49"/>
+    <path d="M24 14 V20"/>
+    <path d="M40 14 V20"/>
+  </g>
+  <circle cx="27" cy="36" r="2.6" fill="#ffffff"/>
+  <path d="M40 30 l1.7 4.3 4.3 1.7 -4.3 1.7 -1.7 4.3 -1.7 -4.3 -4.3 -1.7 4.3 -1.7 z" fill="#ffffff"/>
+</svg>
