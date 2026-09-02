@@ -89,10 +89,10 @@
     <div class="form-actions" style="margin:0">
       <form method="post" action="{{ route('clients.enrich-geo') }}" style="display:inline;margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Run IPinfo geolocation for leads with an IP">🌐 Run IPinfo (geo)</button></form>
       <a class="btn btn-secondary" href="{{ route('clients.export', $baseQuery) }}">⭳ Export CSV</a>
-      <button class="btn btn-primary" type="submit" form="bulkProfilesForm">＋ Create profiles (selected / all)</button>
+      <button class="btn btn-primary" type="submit" form="bulkProfilesForm">＋ Create profiles (selected only)</button>
     </div>
   </div>
-  <p class="muted" style="padding:0 4px 12px;margin:0">Tip: use the per-lead <span class="mini-btn ghost">＋ Profile</span> button to build for one lead, or select rows and use the bulk button. Existing profiles are skipped; GEO needs a known location.</p>
+  <p class="muted" style="padding:0 4px 12px;margin:0">Profiles are created <strong>only for leads you select</strong> (or the per-lead GEO/STATIC/Both buttons). There is no automatic mass-create. Existing profiles are skipped; GEO needs a known location.</p>
 
   <div class="table-wrap">
     <table class="clients-table">
@@ -103,6 +103,8 @@
           <th>{!! $sortLink('company', 'Company') !!}</th>
           <th>{!! $sortLink('call', 'Scheduled call') !!}</th>
           <th>{!! $sortLink('location', 'GEO (IPinfo)') !!}</th>
+          <th>Our Proxy <small>(static)</small></th>
+          <th>Multilogin Proxy <small>(geo)</small></th>
           <th>Profiles</th>
           <th>{!! $sortLink('calls', 'Calls') !!}</th>
           <th style="width:120px">Action</th>
@@ -155,8 +157,8 @@
             <strong>{{ $c->full_name }}</strong>
             <small>{{ $c->email }}</small>
           </td>
-          <td>{{ $c->ownerCompany?->name ?? '—' }}</td>
-          <td>
+          <td class="col-b">{{ $c->ownerCompany?->name ?? '—' }}</td>
+          <td class="col-b">
             @if ($c->next_call_at)
               <strong>{{ $c->next_call_at->format('d.m.Y H:i') }}</strong>
               <small>{{ $c->next_call_status }}</small>
@@ -174,6 +176,27 @@
               </div>
             @else
               <span class="muted">Not enriched</span>
+            @endif
+          </td>
+          <td>
+            @if ($c->our_proxy_ready)
+              <span class="svc-status state-up"><span class="dot"></span>Ready</span>
+              <small class="muted">{{ ucfirst($c->our_proxy_provider ?: 'pool') }} · {{ $c->our_proxy_location ?: '—' }} ({{ str_replace('_', '+', $c->our_proxy_level) }})</small>
+            @else
+              <span class="svc-status state-unknown"><span class="dot"></span>No match</span>
+            @endif
+          </td>
+          <td>
+            @if ($c->ml_proxy_ready)
+              <span class="svc-status state-up"><span class="dot"></span>Ready</span>
+              <small class="muted">{{ \App\Support\CountryFlag::emoji($c->ml_proxy_country) }} {{ collect([$c->ml_proxy_country, $c->ml_proxy_region, $c->ml_proxy_city])->filter()->implode(' ') }}</small>
+            @elseif ($c->display_appointment_id)
+              <form method="post" action="{{ route('appointments.proxy.get', $c->display_appointment_id) }}" style="margin:0">
+                @csrf
+                <button class="mini-btn" type="submit" title="Generate a Multilogin proxy matching country/region/city + ISP">Get proxy</button>
+              </form>
+            @else
+              <span class="muted">—</span>
             @endif
           </td>
           <td class="col-profiles">
@@ -199,7 +222,7 @@
           </td>
         </tr>
       @empty
-        <tr><td colspan="8" class="empty">No clients match these filters.</td></tr>
+        <tr><td colspan="10" class="empty">No clients match these filters.</td></tr>
       @endforelse
       </tbody>
     </table>

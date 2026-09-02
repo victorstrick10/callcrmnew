@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\Company;
 use App\Models\Contact;
+use App\Models\StaticProxy;
 use App\Services\AppointmentService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -136,32 +137,14 @@ class ClientController extends Controller
             'to' => $request->input('to', ''),
         ], fn ($v) => $v !== '' && $v !== null);
 
+        // Never auto-create for all leads — only the leads explicitly selected.
         if ($selected === []) {
-            [$rangeStart, $rangeEnd] = $this->resolveScheduleRange(
-                trim((string) $request->input('schedule', '')),
-                trim((string) $request->input('from', '')),
-                trim((string) $request->input('to', ''))
-            );
+            $msg = 'Select at least one lead (tick the checkboxes) before creating profiles. Bulk auto-create for all leads is disabled.';
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $msg, 'log' => [$msg], 'created' => []]);
+            }
 
-            $contacts = $this->filteredContacts(
-                trim((string) $request->input('company', '')),
-                trim((string) $request->input('q', '')),
-                $request->input('has_call'),
-                $rangeStart,
-                $rangeEnd
-            );
-
-            $selected = $contacts
-                ->map(fn (Contact $c) => (int) ($c->display_appointment_id ?? 0))
-                ->filter(fn (int $id) => $id > 0)
-                ->unique()
-                ->values()
-                ->all();
-        }
-
-        if ($selected === []) {
-            return redirect()->route('clients.index', $redirectQuery)
-                ->with('warning', 'No appointments found to create profiles for.');
+            return redirect()->route('clients.index', $redirectQuery)->with('warning', $msg);
         }
 
         $createdGeo = 0;
@@ -242,6 +225,40 @@ class ClientController extends Controller
     }
 
     /**
+     * Best location match among enabled static proxies (prefers mobile).
+     *
+     * @param  \Illuminate\Support\Collection<int, StaticProxy>  $proxies
+     * @return array{provider:string,location:string,level:string}|null
+     */
+    private function bestStaticMatch($proxies, ?string $city, ?string $region, ?string $country): ?array
+    {
+        $rank = ['city_region' => 4, 'city' => 3, 'region' => 2, 'country' => 1];
+        $best = null;
+        $bestScore = 0.0;
+
+        foreach ($proxies as $p) {
+            $hay = mb_strtolower(trim(($p->location ?? '').' '.($p->label ?? '')));
+            $has = fn (?string $n) => ($n = mb_strtolower(trim((string) $n))) !== '' && str_contains($hay, $n);
+            $c = $has($city);
+            $r = $has($region);
+            $cc = $has($country);
+
+            $level = $c && $r ? 'city_region' : ($c ? 'city' : ($r ? 'region' : ($cc ? 'country' : null)));
+            if ($level === null) {
+                continue;
+            }
+
+            $score = $rank[$level] + ($p->network_type === 'mobile' ? 0.5 : 0);
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = ['provider' => (string) $p->provider, 'location' => (string) $p->location, 'level' => $level];
+            }
+        }
+
+        return $best;
+    }
+
+    /**
      * @return \Illuminate\Support\Collection<int, Contact>
      */
     private function filteredContacts(
@@ -290,7 +307,9 @@ class ClientController extends Controller
             $query->whereDoesntHave('appointments');
         }
 
-        $contacts = $query->get()->map(function (Contact $contact) use ($rangeStart, $rangeEnd) {
+        $enabledProxies = StaticProxy::query()->enabled()->get();
+
+        $contacts = $query->get()->map(function (Contact $contact) use ($rangeStart, $rangeEnd, $enabledProxies) {
             $scheduled = $contact->appointments->where('status', 'scheduled');
 
             $inRange = null;
@@ -345,6 +364,25 @@ class ClientController extends Controller
                     ->first()
                     ?->profile_name ?? '')
                 : '';
+
+            // Our (static) proxy match — is a MobileHop/ProxyCheap proxy ready for STATIC?
+            $sm = $this->bestStaticMatch(
+                $enabledProxies,
+                $contact->geo_city,
+                $contact->geo_region,
+                $contact->geo_country_code ?: $contact->geo_country
+            );
+            $contact->our_proxy_ready = $sm !== null;
+            $contact->our_proxy_provider = $sm['provider'] ?? '';
+            $contact->our_proxy_location = $sm['location'] ?? '';
+            $contact->our_proxy_level = $sm['level'] ?? '';
+
+            // Multilogin (GEO) proxy readiness from the display appointment.
+            $contact->ml_proxy_ready = (bool) ($display && $display->proxy_status === 'ready');
+            $contact->ml_proxy_country = trim((string) ($display?->proxy_actual_country ?: $display?->country_code ?: $display?->country ?: ''));
+            $contact->ml_proxy_region = trim((string) ($display?->proxy_actual_region ?: $display?->region ?: ''));
+            $contact->ml_proxy_city = trim((string) ($display?->proxy_actual_city ?: $display?->city ?: ''));
+            $contact->ml_proxy_level = trim((string) ($display?->proxy_match_level ?? ''));
 
             return $contact;
         });

@@ -254,3 +254,9 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .log-line.bad{background:#fdecee;color:#b42337;border-color:#f5c2c8}
 
 .badge-deleted{background:#eef1f6;color:#8a94a6;text-decoration:line-through}
+
+/* Clients: bold key columns */
+.clients-table td.col-b, .clients-table td.col-b strong{font-weight:700}
+.clients-table .col-lead strong{font-weight:800;font-size:13px}
+.clients-table .col-geo .geo-lines span{font-weight:600}
+.clients-table th small{font-weight:600;color:#aab2c4;text-transform:none;letter-spacing:0}
