@@ -253,6 +253,7 @@ class ClientController extends Controller
                     'provider' => (string) $p->provider,
                     'location' => (string) $p->location,
                     'level' => $level,
+                    'country' => StaticProxyService::proxyCountryCode($p),
                     'exit_country' => (string) $p->exit_country,
                     'exit_region' => (string) $p->exit_region,
                     'exit_city' => (string) $p->exit_city,
@@ -385,10 +386,10 @@ class ClientController extends Controller
             $contact->our_proxy_location = $sm['location'] ?? '';
             $contact->our_proxy_level = $sm['level'] ?? '';
             $contact->our_proxy_checked = (bool) ($sm['checked'] ?? false);
-            $contact->our_proxy_country = $sm['exit_country'] ?? '';
+            $contact->our_proxy_country = ($sm['exit_country'] ?? '') ?: ($sm['country'] ?? '');
             $contact->our_proxy_region = $sm['exit_region'] ?? '';
             $contact->our_proxy_city = $sm['exit_city'] ?? '';
-            $contact->our_proxy_isp = $sm['exit_isp'] ?? '';
+            $contact->our_proxy_isp = ($sm['exit_isp'] ?? '') ?: trim(str_replace((string) ($sm['country'] ?? ''), '', (string) ($sm['location'] ?? '')), ' ·');
 
             // Multilogin (GEO) proxy readiness from the display appointment.
             $contact->ml_proxy_ready = (bool) ($display && $display->proxy_status === 'ready');

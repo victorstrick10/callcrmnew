@@ -212,6 +212,16 @@ setTimeout(() => {
   });
 })();
 
+// Static Proxies: toggle the hidden connection (host/port/user/pass) row.
+document.querySelectorAll('.proxy-conn-toggle').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const row = document.getElementById(btn.dataset.target);
+    if (!row) return;
+    row.hidden = !row.hidden;
+    btn.textContent = row.hidden ? 'Show ▾' : 'Hide ▴';
+  });
+});
+
 // Progress popup: intercept .js-progress forms + power the Profile Builder,
 // showing a live log (number check, proxy match, creation results).
 (function initProgress() {

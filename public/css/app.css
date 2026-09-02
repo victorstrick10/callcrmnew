@@ -264,3 +264,9 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 /* Clickable stat cards */
 a.stat-card{text-decoration:none;color:inherit;transition:transform .12s,box-shadow .12s;cursor:pointer}
 a.stat-card:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(30,41,59,.14)}
+
+/* Static proxy connection details (collapsible) */
+.proxy-conn-row td{background:#fafbff}
+.conn-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px 14px;padding:6px 2px}
+.conn-grid label{margin:0 0 4px}
+@media(max-width:900px){.conn-grid{grid-template-columns:1fr 1fr}}

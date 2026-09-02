@@ -147,22 +147,18 @@
           <th>Provider</th>
           <th>Label</th>
           <th>Location</th>
-          <th>Host</th>
-          <th>Port</th>
-          <th>Protocol</th>
-          <th>Username</th>
-          <th>Password</th>
+          <th>Live (ipinfo geo)</th>
           <th>Enabled</th>
-          <th>Live</th>
+          <th>Connection</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
       @forelse ($proxies as $proxy)
-      @php $formId = 'proxy-update-'.$proxy->id; @endphp
+      @php $formId = 'proxy-update-'.$proxy->id; $connId = 'proxy-conn-'.$proxy->id; @endphp
       <tr>
         <td>
-          <select form="{{ $formId }}" name="provider" style="min-width:120px">
+          <select form="{{ $formId }}" name="provider" style="min-width:110px">
             <option value="" @selected(! $proxy->provider)>Other</option>
             @foreach ($providers as $key => $label)
               <option value="{{ $key }}" @selected($proxy->provider === $key)>{{ $label }}</option>
@@ -174,29 +170,28 @@
           <input form="{{ $formId }}" name="label" value="{{ $proxy->label }}" placeholder="—" style="min-width:120px">
           @if ($proxy->network_type)<small class="role-chip {{ $proxy->network_type === 'mobile' ? 'on' : '' }}">{{ strtoupper($proxy->network_type) }}</small>@endif
         </td>
-        <td><input form="{{ $formId }}" name="location" value="{{ $proxy->location }}" placeholder="—" style="min-width:110px"></td>
-        <td><input form="{{ $formId }}" name="host" value="{{ $proxy->host }}" required style="min-width:130px"></td>
-        <td><input form="{{ $formId }}" type="number" name="port" value="{{ $proxy->port }}" min="1" max="65535" required style="width:80px"></td>
+        <td><input form="{{ $formId }}" name="location" value="{{ $proxy->location }}" placeholder="—" style="min-width:100px"></td>
         <td>
-          <select form="{{ $formId }}" name="protocol">
-            <option value="http" @selected($proxy->protocol === 'http')>HTTP</option>
-            <option value="socks5" @selected($proxy->protocol === 'socks5')>SOCKS5</option>
-          </select>
+          <span class="svc-status state-{{ $proxy->checkState() }}" title="{{ $proxy->last_checked_at ? 'Checked '.$proxy->last_checked_at->diffForHumans() : 'Not checked yet' }}">
+            <span class="dot"></span>{{ $proxy->last_check_status ?: 'untested' }}
+          </span>
+          @if ($proxy->exit_ip || $proxy->exit_country)
+          <div class="geo-lines">
+            <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($proxy->exit_country) }} {{ $proxy->exit_country ?: '—' }}</span>
+            <span><b>Region</b>{{ $proxy->exit_region ?: '—' }}</span>
+            <span><b>City</b>{{ $proxy->exit_city ?: '—' }}</span>
+            <span><b>ISP</b>{{ $proxy->exit_isp ?: '—' }}</span>
+            <span><b>IP</b>{{ $proxy->exit_ip ?: '—' }}</span>
+          </div>
+          @endif
         </td>
-        <td><input form="{{ $formId }}" name="username" value="{{ $proxy->username }}" placeholder="—" style="min-width:90px"></td>
-        <td><input form="{{ $formId }}" type="password" name="password" placeholder="{{ $proxy->password ? '••••••••' : '—' }}" style="min-width:90px"></td>
         <td>
           <label class="switch-row" style="margin:0;padding:8px 10px">
             <input form="{{ $formId }}" type="checkbox" name="enabled" value="1" @checked($proxy->enabled)>
             <span class="switch"></span>
           </label>
         </td>
-        <td>
-          <span class="svc-status state-{{ $proxy->checkState() }}" title="{{ $proxy->last_checked_at ? 'Checked '.$proxy->last_checked_at->diffForHumans() : 'Not checked yet' }}">
-            <span class="dot"></span>{{ $proxy->last_check_status ?: 'untested' }}
-          </span>
-          @if ($proxy->exit_ip)<small class="muted">{{ $proxy->exit_ip }}</small>@endif
-        </td>
+        <td><button type="button" class="mini-btn ghost proxy-conn-toggle" data-target="{{ $connId }}">Show ▾</button></td>
         <td style="white-space:nowrap">
           <button class="btn btn-secondary" type="submit" form="{{ $formId }}">Save</button>
           <form method="post" action="{{ route('static-proxies.check', $proxy) }}" style="display:inline;margin-left:6px">
@@ -210,8 +205,24 @@
           </form>
         </td>
       </tr>
+      <tr id="{{ $connId }}" class="proxy-conn-row" hidden>
+        <td colspan="7">
+          <div class="conn-grid">
+            <div><label>Host</label><input form="{{ $formId }}" name="host" value="{{ $proxy->host }}" required></div>
+            <div><label>Port</label><input form="{{ $formId }}" type="number" name="port" value="{{ $proxy->port }}" min="1" max="65535" required></div>
+            <div><label>Protocol</label>
+              <select form="{{ $formId }}" name="protocol">
+                <option value="http" @selected($proxy->protocol === 'http')>HTTP</option>
+                <option value="socks5" @selected($proxy->protocol === 'socks5')>SOCKS5</option>
+              </select>
+            </div>
+            <div><label>Username</label><input form="{{ $formId }}" name="username" value="{{ $proxy->username }}" placeholder="—"></div>
+            <div><label>Password</label><input form="{{ $formId }}" type="password" name="password" placeholder="{{ $proxy->password ? '••••••••' : '—' }}"></div>
+          </div>
+        </td>
+      </tr>
       @empty
-      <tr><td colspan="11" class="empty">No static proxies{{ $provider ? ' for '.$providerLabel($provider) : '' }} yet. Add or import above.</td></tr>
+      <tr><td colspan="7" class="empty">No static proxies{{ $provider ? ' for '.$providerLabel($provider) : '' }} yet. Add or import above.</td></tr>
       @endforelse
       </tbody>
     </table>

@@ -69,8 +69,7 @@ class MultiloginClient
         $this->profileNumbers = $profileNumbers ?? app(ProfileNumberService::class);
 
         $this->cfg = $this->settings->getSettings('multilogin');
-        $baseUrl = $override_base_url ?: ($this->cfg['base_url'] ?? 'https://api.multilogin.com');
-        $this->base_url = rtrim($baseUrl, '/');
+        $this->base_url = self::sanitizeApiBaseUrl($override_base_url ?: ($this->cfg['base_url'] ?? ''));
         $this->token = $override_token ?: ($this->cfg['automation_token'] ?? '');
         // Simulation is opt-in. Unset/empty must mean real Multilogin API calls.
         $simulationRaw = strtolower((string) ($this->cfg['simulation_mode'] ?? 'false'));
@@ -125,7 +124,36 @@ class MultiloginClient
             $client->cfg['static_folder_id'] = $tokenWorkspace;
         }
 
+        // Cloud API calls must never hit a local launcher / bad host.
+        $client->base_url = self::sanitizeApiBaseUrl($client->base_url);
+
         return $client;
+    }
+
+    /**
+     * Ensure the Multilogin cloud API base URL is valid — never a local
+     * launcher (localhost / 127.0.0.1 / :45001 / launcher / mlx.yt) or a
+     * non-http value, which returns HTTP 501 "Unsupported method". Falls back
+     * to https://api.multilogin.com.
+     */
+    public static function sanitizeApiBaseUrl(?string $url): string
+    {
+        $default = 'https://api.multilogin.com';
+        $url = trim((string) $url);
+        if ($url === '' || ! preg_match('#^https?://#i', $url)) {
+            return $default;
+        }
+
+        $host = strtolower((string) (parse_url($url, PHP_URL_HOST) ?: ''));
+        $port = parse_url($url, PHP_URL_PORT);
+        if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+            || $port === 45001
+            || str_contains($host, 'mlx.yt')
+            || str_contains(strtolower($url), 'launcher')) {
+            return $default;
+        }
+
+        return rtrim($url, '/');
     }
 
     /**

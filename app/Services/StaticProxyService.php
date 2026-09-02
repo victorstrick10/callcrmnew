@@ -119,16 +119,18 @@ class StaticProxyService
         // Client country may arrive as a 2-letter code or a full name; use the code.
         $countryCode = mb_strtolower(trim((string) $country));
 
+        $loc = mb_strtolower(trim(($proxy->location ?? '').' '.($proxy->label ?? '')));
         $pCity = mb_strtolower(trim((string) $proxy->exit_city));
         $pRegion = mb_strtolower(trim((string) $proxy->exit_region));
-        $pCountry = mb_strtolower(trim((string) $proxy->exit_country));
+        $pCountry = mb_strtolower(self::proxyCountryCode($proxy));
         $pText = mb_strtolower(trim(($proxy->exit_isp ?? '').' '.($proxy->location ?? '').' '.($proxy->label ?? '')));
 
         $sub = fn (string $a, string $b) => $a !== '' && $b !== '' && (str_contains($a, $b) || str_contains($b, $a));
 
-        $c = $sub($pCity, $city);
-        $r = $sub($pRegion, $region);
-        // Country matches only on exact 2-letter code equality (no loose substring).
+        // City/region: match verified exit geo OR the proxy's declared location/label.
+        $c = $sub($pCity, $city) || $sub($loc, $city);
+        $r = $sub($pRegion, $region) || $sub($loc, $region);
+        // Country: exact 2-letter code equality (verified exit or declared location code).
         $cc = strlen($countryCode) === 2 && $countryCode === $pCountry;
         $ispMatch = self::ispMatches($pText, $isp);
 
@@ -140,6 +142,24 @@ class StaticProxyService
             $cc => 'country',
             default => 'random',
         };
+    }
+
+    /**
+     * The proxy's country code: the verified ipinfo exit country if present,
+     * else derived from the leading 2-letter code of the declared location
+     * (e.g. ProxyCheap "GB · COLT" -> GB).
+     */
+    public static function proxyCountryCode(StaticProxy $proxy): string
+    {
+        $exit = strtoupper(trim((string) $proxy->exit_country));
+        if (strlen($exit) === 2) {
+            return $exit;
+        }
+        if (preg_match('/^([A-Za-z]{2})\b/', trim((string) $proxy->location), $m)) {
+            return strtoupper($m[1]);
+        }
+
+        return '';
     }
 
     /** Fuzzy ISP/provider match: any significant word of the client ISP present in the proxy text. */

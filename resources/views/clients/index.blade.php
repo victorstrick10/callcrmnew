@@ -182,16 +182,13 @@
           <td>
             @if ($c->our_proxy_ready)
               <span class="svc-status state-up"><span class="dot"></span>{{ ucfirst($c->our_proxy_provider ?: 'pool') }} · {{ str_replace('_', '+', $c->our_proxy_level) }}</span>
-              @if ($c->our_proxy_checked)
-                <div class="geo-lines">
-                  <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->our_proxy_country) }} {{ $c->our_proxy_country ?: '—' }}</span>
-                  <span><b>Region</b>{{ $c->our_proxy_region ?: '—' }}</span>
-                  <span><b>City</b>{{ $c->our_proxy_city ?: '—' }}</span>
-                  <span><b>ISP</b>{{ $c->our_proxy_isp ?: '—' }}</span>
-                </div>
-              @else
-                <small class="muted">{{ $c->our_proxy_location ?: '' }} · run “Check all live” to verify geo</small>
-              @endif
+              <div class="geo-lines">
+                <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->our_proxy_country) }} {{ $c->our_proxy_country ?: '—' }}</span>
+                <span><b>Region</b>{{ $c->our_proxy_region ?: '—' }}</span>
+                <span><b>City</b>{{ $c->our_proxy_city ?: '—' }}</span>
+                <span><b>ISP</b>{{ $c->our_proxy_isp ?: '—' }}</span>
+              </div>
+              @unless ($c->our_proxy_checked)<small class="muted">run “Check all live” to verify region/city</small>@endunless
             @else
               <span class="svc-status state-unknown"><span class="dot"></span>No match</span>
             @endif
