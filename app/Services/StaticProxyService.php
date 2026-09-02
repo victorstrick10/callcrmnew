@@ -61,4 +61,26 @@ class StaticProxyService
 
         return $enabled->random();
     }
+
+    /**
+     * Describe how well a proxy matches a client location:
+     * city_region | city | region | country | random (no match).
+     */
+    public function matchLevel(StaticProxy $proxy, ?string $city, ?string $region, ?string $country): string
+    {
+        $hay = mb_strtolower(trim(($proxy->location ?? '').' '.($proxy->label ?? '')));
+        $has = fn (?string $n) => ($n = mb_strtolower(trim((string) $n))) !== '' && str_contains($hay, $n);
+
+        $c = $has($city);
+        $r = $has($region);
+        $cc = $has($country);
+
+        return match (true) {
+            $c && $r => 'city_region',
+            $c => 'city',
+            $r => 'region',
+            $cc => 'country',
+            default => 'random',
+        };
+    }
 }

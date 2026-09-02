@@ -169,6 +169,7 @@ class ClientController extends Controller
         $skipped = 0;
         $failed = 0;
         $errors = [];
+        $log = [];
 
         foreach ($selected as $appointmentId) {
             $appointment = Appointment::query()->with(['contact', 'profiles', 'company'])->find($appointmentId);
@@ -177,18 +178,24 @@ class ClientController extends Controller
                 continue;
             }
 
+            $who = $appointment->contact?->full_name ?: "Appointment #{$appointmentId}";
+
             try {
                 $result = $service->createMissingProfiles($appointment, $onlyRoles);
                 $createdGeo += in_array('geo', $result['created'], true) ? 1 : 0;
                 $createdStatic += in_array('static', $result['created'], true) ? 1 : 0;
                 $skipped += count($result['skipped']);
                 $failed += count($result['failed']);
+                foreach (($result['log'] ?? []) as $line) {
+                    $log[] = "{$who} — {$line}";
+                }
                 foreach ($result['failed'] as $item) {
                     $errors[] = "#{$appointmentId} {$item['role']}: {$item['error']}";
                 }
             } catch (Throwable $e) {
                 $failed++;
                 $errors[] = "#{$appointmentId}: {$e->getMessage()}";
+                $log[] = "{$who} — ✗ {$e->getMessage()}";
             }
         }
 
@@ -204,6 +211,15 @@ class ClientController extends Controller
         }
 
         $flashType = $failed > 0 && ($createdGeo + $createdStatic) === 0 ? 'danger' : 'success';
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok' => $flashType !== 'danger',
+                'message' => $message,
+                'log' => $log,
+                'created' => [],
+            ]);
+        }
 
         return redirect()->route('clients.index', $redirectQuery)->with($flashType, $message);
     }

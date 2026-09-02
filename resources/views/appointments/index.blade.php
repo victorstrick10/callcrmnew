@@ -82,7 +82,7 @@
           <td class="col-geo">
             @if ($a->country || $a->region || $a->city || $a->client_isp)
               <div class="geo-lines">
-                <span><b>Country</b>{{ $a->country ?: $a->country_code ?: '—' }}</span>
+                <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($a->country_code) }} {{ $a->country ?: $a->country_code ?: '—' }}</span>
                 <span><b>Region</b>{{ $a->region ?: '—' }}</span>
                 <span><b>City</b>{{ $a->city ?: '—' }}</span>
                 <span><b>ISP</b>{{ $a->client_isp ?: $a->client_org ?: '—' }}</span>

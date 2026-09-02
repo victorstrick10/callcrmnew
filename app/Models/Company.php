@@ -10,6 +10,7 @@ class Company extends Model
 {
     protected $fillable = [
         'name',
+        'short_name',
         'slug',
         'lead_api_url',
         'calendly_org_uri',

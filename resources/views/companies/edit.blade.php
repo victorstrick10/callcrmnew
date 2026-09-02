@@ -49,6 +49,7 @@
     <h3 class="section-title">Identity</h3>
     <div class="form-grid">
       <div><label>Name</label><input name="name" value="{{ old('name', $company->name) }}" required></div>
+      <div><label>Short name <span>used in profile names</span></label><input name="short_name" value="{{ old('short_name', $company->short_name) }}" placeholder="e.g. Diligent or Global"></div>
       <div><label>Slug</label><input name="slug" value="{{ old('slug', $company->slug) }}" required></div>
     </div>
 

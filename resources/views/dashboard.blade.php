@@ -74,7 +74,7 @@
           <tr class="click-row" data-href="{{ route('appointments.show', $a) }}">
             <td><strong>{{ $a->contact->full_name }}</strong><small>{{ $a->company?->name }}</small></td>
             <td>{{ $a->localStart() ? $a->localStart()->format('d.m.Y H:i') : 'Not set' }}</td>
-            <td>{{ $a->city ?: 'Unknown' }}@if($a->region), {{ $a->region }}@endif</td>
+            <td>{{ \App\Support\CountryFlag::emoji($a->country_code) }} {{ $a->city ?: 'Unknown' }}@if($a->region), {{ $a->region }}@endif</td>
             <td>
               @unless($roles->contains('geo'))<span class="badge badge-reserved">GEO</span>@endunless
               @unless($roles->contains('static'))<span class="badge badge-reserved">STATIC</span>@endunless
@@ -99,7 +99,7 @@
           <tr class="click-row" data-href="{{ route('appointments.show', $a) }}">
             <td><strong>{{ $a->contact->full_name }}</strong><small>{{ $a->contact->email }}</small></td>
             <td>{{ $a->localStart() ? $a->localStart()->format('d.m.Y H:i') : 'Not set' }}</td>
-            <td>{{ $a->city ?: 'Unknown' }}@if($a->country), {{ $a->country }}@endif</td>
+            <td>{{ \App\Support\CountryFlag::emoji($a->country_code) }} {{ $a->city ?: 'Unknown' }}@if($a->country), {{ $a->country }}@endif</td>
             <td><span class="badge badge-{{ $a->status }}">{{ $a->status }}</span></td>
           </tr>
         @empty

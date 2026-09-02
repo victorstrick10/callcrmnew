@@ -134,11 +134,15 @@ class AppointmentController extends Controller
         $country = $appointment->country_code ?: $appointment->country;
         $geoEligible = $names->hasUsableGeoLocation($appointment->city, $appointment->region, $country);
 
+        $companyShort = $company?->short_name
+            ?: (explode(' ', trim((string) $company?->name))[0] ?? '');
+        $scheduledAt = $appointment->localStart()?->format('d.m H:i') ?? '';
+
         $geoName = $previewNumber >= 1
-            ? $names->geo($previewNumber, $fullName, $appointment->city, $appointment->region, $country)
+            ? $names->geo($previewNumber, $fullName, $companyShort, $scheduledAt)
             : null;
         $staticName = $previewNumber >= 1
-            ? $names->staticName($previewNumber, $fullName)
+            ? $names->staticName($previewNumber, $fullName, $companyShort, $scheduledAt)
             : null;
 
         return [
@@ -211,18 +215,38 @@ class AppointmentController extends Controller
         }
     }
 
-    public function createProfiles(Appointment $appointment, string $mode, AppointmentService $service): RedirectResponse
+    public function createProfiles(Request $request, Appointment $appointment, string $mode, AppointmentService $service)
     {
+        $only = $mode === 'both' ? null : [$mode];
+
         try {
-            $service->createProfiles($appointment, $mode);
-
-            return redirect()->route('appointments.show', $appointment)
-                ->with('success', 'Profile creation process completed. Review the statuses below.');
+            $result = $service->createMissingProfiles($appointment, $only);
         } catch (Throwable $e) {
-            $type = str_contains($e->getMessage(), 'already exist') ? 'warning' : 'danger';
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $e->getMessage(), 'log' => ['✗ '.$e->getMessage()], 'created' => []]);
+            }
 
-            return redirect()->route('appointments.show', $appointment)->with($type, $e->getMessage());
+            return redirect()->route('appointments.show', $appointment)->with('danger', $e->getMessage());
         }
+
+        $createdCount = count($result['created']);
+        $failedCount = count($result['failed']);
+        $summary = $createdCount > 0
+            ? "Created {$createdCount} profile(s)."
+            : ($failedCount > 0 ? 'Profile creation failed — see log.' : 'Nothing to create — the profile(s) already exist.');
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok' => $failedCount === 0,
+                'message' => $summary,
+                'log' => $result['log'] ?? [],
+                'created' => $result['created_names'] ?? [],
+            ]);
+        }
+
+        $type = $createdCount > 0 ? 'success' : ($failedCount > 0 ? 'danger' : 'warning');
+
+        return redirect()->route('appointments.show', $appointment)->with($type, $summary);
     }
 
     public function demo(AppointmentService $service): RedirectResponse

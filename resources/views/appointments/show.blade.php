@@ -106,7 +106,7 @@
       <div><span>IP address</span><strong>{{ $appointment->ip_address ?: 'Not captured' }}</strong></div>
       <div><span>City</span><strong>{{ $appointment->city ?: 'Unknown' }}</strong></div>
       <div><span>Region</span><strong>{{ $appointment->region ?: 'Unknown' }}</strong></div>
-      <div><span>Country</span><strong>{{ $appointment->country ?: $appointment->country_code ?: 'Unknown' }}</strong></div>
+      <div><span>Country</span><strong>{{ \App\Support\CountryFlag::emoji($appointment->country_code) }} {{ $appointment->country ?: $appointment->country_code ?: 'Unknown' }}</strong></div>
       <div><span>Timezone</span><strong>{{ $appointment->timezone ?: $appointment->invitee_timezone ?: 'Unknown' }}</strong></div>
       <div><span>Client ISP</span><strong>{{ $appointment->client_isp ?: $appointment->client_org ?: 'Unknown' }}</strong></div>
       <div><span>Client ASN</span><strong>{{ $appointment->client_asn ?: 'Unknown' }}</strong></div>
@@ -199,7 +199,7 @@
         <div class="detail-list">
           <div class="detail-row"><span>City</span><strong>{{ $appointment->city ?: 'Unknown' }}</strong></div>
           <div class="detail-row"><span>Region</span><strong>{{ $appointment->region ?: 'Unknown' }}</strong></div>
-          <div class="detail-row"><span>Country</span><strong>{{ $appointment->country ?: $appointment->country_code ?: 'Unknown' }}</strong></div>
+          <div class="detail-row"><span>Country</span><strong>{{ \App\Support\CountryFlag::emoji($appointment->country_code) }} {{ $appointment->country ?: $appointment->country_code ?: 'Unknown' }}</strong></div>
           <div class="detail-row"><span>Client ISP</span><strong>{{ $appointment->client_isp ?: $appointment->client_org ?: 'Unknown' }}</strong></div>
         </div>
         <form method="post" action="{{ route('appointments.enrich', $appointment) }}" style="margin-top:12px">
@@ -215,11 +215,11 @@
             <input type="checkbox" class="role-check" value="geo"
               @if($builder['geo_eligible'] && !$builder['geo_exists']) checked @else disabled @endif>
             <div>
-              <strong>GEO profile</strong>
+              <strong>Create Geo Profile</strong>
               <small>
                 @if($builder['geo_exists']) Already created
                 @elseif(!$builder['geo_eligible']) Needs a known country (run IPinfo)
-                @else Matched residential proxy for the lead's location @endif
+                @else Matched Multilogin proxy for the lead's location @endif
               </small>
             </div>
           </label>
@@ -227,8 +227,8 @@
             <input type="checkbox" class="role-check" value="static"
               @if(!$builder['static_exists']) checked @else disabled @endif>
             <div>
-              <strong>STATIC profile</strong>
-              <small>@if($builder['static_exists']) Already created @else Uses a proxy from your static pool @endif</small>
+              <strong>Create Static Profile</strong>
+              <small>@if($builder['static_exists']) Already created @else Uses a location-matched mobile proxy (ProxyCheap / MobileHop) @endif</small>
             </div>
           </label>
         </div>
@@ -242,9 +242,11 @@
       <button type="button" class="btn btn-secondary" id="profileModalCancel">Cancel</button>
       <form method="post" id="profileCreateForm" data-fallback="{{ route('appointments.profiles', [$appointment, 'both']) }}">
         @csrf
-        <button type="submit" class="btn btn-primary" id="profileConfirm" @unless($builder['multilogin_ready']) disabled @endunless>Create selected profiles</button>
+        <button type="submit" class="btn btn-primary" id="profileConfirm" @unless($builder['multilogin_ready']) disabled @endunless>Create Geo/Static Profile</button>
       </form>
     </div>
   </div>
 </div>
+
+@include('partials.progress-modal')
 @endsection

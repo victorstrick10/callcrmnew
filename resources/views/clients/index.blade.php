@@ -167,7 +167,7 @@
           <td class="col-geo">
             @if ($c->geo_country || $c->geo_region || $c->geo_city || $c->geo_provider)
               <div class="geo-lines">
-                <span><b>Country</b>{{ $c->geo_country ?: $c->geo_country_code ?: '—' }}</span>
+                <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->geo_country_code) }} {{ $c->geo_country ?: $c->geo_country_code ?: '—' }}</span>
                 <span><b>Region</b>{{ $c->geo_region ?: '—' }}</span>
                 <span><b>City</b>{{ $c->geo_city ?: '—' }}</span>
                 <span><b>ISP</b>{{ $c->geo_provider ?: '—' }}</span>
@@ -183,7 +183,7 @@
           <td>{{ $c->calls_count }}</td>
           <td>
             @if ($c->display_appointment_id)
-              <form method="post" action="{{ route('clients.create-missing-profiles') }}" class="inline-create">
+              <form method="post" action="{{ route('clients.create-missing-profiles') }}" class="inline-create js-progress">
                 @csrf
                 @foreach ($baseQuery as $k => $v)<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endforeach
                 <input type="hidden" name="appointment_ids[]" value="{{ $c->display_appointment_id }}">
@@ -207,11 +207,13 @@
 </div>
 
 {{-- Standalone bulk form (kept outside the table so per-row forms don't nest) --}}
-<form method="post" action="{{ route('clients.create-missing-profiles') }}" id="bulkProfilesForm" hidden>
+<form method="post" action="{{ route('clients.create-missing-profiles') }}" id="bulkProfilesForm" class="js-progress" hidden>
   @csrf
   @foreach ($baseQuery as $k => $v)<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endforeach
   <div id="bulkProfilesIds"></div>
 </form>
+
+@include('partials.progress-modal')
 
 <div class="modal-backdrop" id="leadModal" hidden>
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="leadModalTitle">

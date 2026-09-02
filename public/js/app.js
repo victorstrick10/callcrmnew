@@ -195,12 +195,90 @@ setTimeout(() => {
   updateConfirm();
 
   form?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
     const sel = selected();
-    if (!ready || sel.length === 0) { ev.preventDefault(); return; }
+    if (!ready || sel.length === 0) return;
     const mode = sel.length === 2 ? 'both' : sel[0];
     const key = 'url' + mode.charAt(0).toUpperCase() + mode.slice(1);
-    form.action = modal.dataset[key] || form.dataset.fallback;
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Creating…';
+    const action = modal.dataset[key] || form.dataset.fallback;
+    modal.hidden = true;
+    const fd = new FormData(form);
+    if (window.__runProgress) {
+      window.__runProgress(action, fd);
+    } else {
+      form.action = action;
+      form.submit();
+    }
+  });
+})();
+
+// Progress popup: intercept .js-progress forms + power the Profile Builder,
+// showing a live log (number check, proxy match, creation results).
+(function initProgress() {
+  const modal = document.getElementById('progressModal');
+  if (!modal) return;
+
+  const spinner = document.getElementById('progressSpinner');
+  const logEl = document.getElementById('progressLog');
+  const closeBtn = document.getElementById('progressClose');
+  const title = document.getElementById('progressTitle');
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const open = () => {
+    logEl.hidden = true;
+    logEl.innerHTML = '';
+    spinner.hidden = false;
+    closeBtn.hidden = true;
+    title.textContent = 'Creating profiles…';
+    modal.hidden = false;
+    document.body.classList.add('modal-open');
+  };
+  const close = () => {
+    modal.hidden = true;
+    document.body.classList.remove('modal-open');
+    window.location.reload();
+  };
+  const render = (data) => {
+    spinner.hidden = true;
+    closeBtn.hidden = false;
+    title.textContent = (data.ok ? '✅ ' : '⚠️ ') + (data.message || 'Done');
+    const lines = (data.log && data.log.length) ? data.log : (data.message ? [data.message] : ['Done.']);
+    logEl.innerHTML = lines.map((l) => {
+      const cls = /✗|failed|error/i.test(l) ? 'bad' : (/✓|matched|created|ready/i.test(l) ? 'good' : '');
+      return `<div class="log-line ${cls}">${esc(l)}</div>`;
+    }).join('');
+    logEl.hidden = false;
+  };
+
+  const run = async (action, fd) => {
+    open();
+    try {
+      const resp = await fetch(action, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: fd,
+      });
+      let data;
+      try { data = await resp.json(); } catch (_) { data = { ok: false, message: 'Unexpected server response', log: [] }; }
+      render(data);
+    } catch (err) {
+      render({ ok: false, message: 'Request failed', log: [String(err)] });
+    }
+  };
+  window.__runProgress = run;
+
+  closeBtn?.addEventListener('click', close);
+  modal.addEventListener('click', (e) => { if (e.target === modal && !closeBtn.hidden) close(); });
+
+  document.querySelectorAll('form.js-progress').forEach((form) => {
+    form.querySelectorAll('button[type=submit]').forEach((btn) => {
+      btn.addEventListener('click', () => { form.__clicked = { name: btn.name, value: btn.value }; });
+    });
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      if (form.__clicked && form.__clicked.name) fd.set(form.__clicked.name, form.__clicked.value);
+      run(form.action, fd);
+    });
   });
 })();

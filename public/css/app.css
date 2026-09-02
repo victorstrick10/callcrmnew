@@ -243,3 +243,12 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .geo-lines{display:flex;flex-direction:column;gap:2px;font-size:12px}
 .geo-lines span{display:flex;gap:6px;color:#334155}
 .geo-lines b{display:inline-block;min-width:56px;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+
+/* Progress popup */
+.progress-spinner{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:14px;padding:10px 0}
+.progress-spinner .spin{width:20px;height:20px;border-radius:50%;border:3px solid #e2e8f0;border-top-color:var(--primary);animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.progress-log{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow:auto}
+.log-line{font-size:13px;padding:9px 12px;border-radius:10px;background:#f6f8fc;border:1px solid var(--line);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.log-line.good{background:#e7f8f0;color:#137a50;border-color:#bfe9d4}
+.log-line.bad{background:#fdecee;color:#b42337;border-color:#f5c2c8}

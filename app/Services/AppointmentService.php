@@ -221,21 +221,31 @@ class AppointmentService
         if (! $want) {
             return [
                 'created' => [],
+                'created_names' => [],
                 'skipped' => ['geo', 'static'],
                 'failed' => [],
+                'log' => ['Nothing to create — the requested profile(s) already exist for this lead.'],
             ];
         }
 
         $failed = [];
+        $log = [];
 
         if (in_array('geo', $want, true) && ! MultiloginClient::saved_proxy_from_appointment($appointment)) {
             try {
                 $this->getProxy($appointment, 3, true);
                 $appointment->refresh();
+                $matchTxt = str_replace('_', '+', (string) ($appointment->proxy_match_level ?: 'country'));
+                $log[] = 'GEO: Multilogin proxy ready — '
+                    .trim(($appointment->proxy_actual_city ?: $appointment->city).', '
+                        .($appointment->proxy_actual_region ?: $appointment->region).', '
+                        .($appointment->proxy_country ?: $appointment->country_code), ', ')
+                    ." ({$matchTxt} match)";
             } catch (Throwable $exc) {
                 // Do not block STATIC when Multilogin proxy generation/inspection fails.
                 $want = array_values(array_filter($want, fn ($role) => $role !== 'geo'));
                 $failed[] = ['role' => 'geo', 'error' => $exc->getMessage()];
+                $log[] = 'GEO: proxy generation failed — '.$exc->getMessage();
                 $this->audit->log(
                     'GEO proxy preparation failed; continuing without GEO',
                     "Appointment={$appointment->id}; {$exc->getMessage()}"
@@ -246,8 +256,10 @@ class AppointmentService
         if (! $want) {
             return [
                 'created' => [],
+                'created_names' => [],
                 'skipped' => array_values(array_diff(['geo', 'static'], array_column($failed, 'role'))),
                 'failed' => $failed,
+                'log' => $log,
             ];
         }
 
@@ -258,18 +270,20 @@ class AppointmentService
 
         $number = $this->numbers->allocateNumberForAppointment($appointment->id);
         $created = [];
+        $createdNames = [];
+
+        $companyShort = $company->short_name
+            ?: (explode(' ', trim((string) $company->name))[0] ?? '');
+        $scheduledAt = $appointment->localStart()?->format('d.m H:i') ?? '';
+        $cc = $appointment->country_code ?: $appointment->country;
+
+        $log[] = 'Number allocated: '.$this->numbers->formatNumber($number).' (fresh check against Multilogin).';
 
         foreach ($want as $role) {
             $fullName = $appointment->contact->full_name;
             $name = $role === 'geo'
-                ? $this->names->geo(
-                    $number,
-                    $fullName,
-                    $appointment->city,
-                    $appointment->region,
-                    $appointment->country_code ?: $appointment->country
-                )
-                : $this->names->staticName($number, $fullName);
+                ? $this->names->geo($number, $fullName, $companyShort, $scheduledAt)
+                : $this->names->staticName($number, $fullName, $companyShort, $scheduledAt);
 
             $profile = BrowserProfile::create([
                 'appointment_id' => $appointment->id,
@@ -286,9 +300,14 @@ class AppointmentService
                     $staticProxy = $this->staticProxies->pickForLocation(
                         $appointment->city,
                         $appointment->region,
-                        $appointment->country_code ?: $appointment->country
+                        $cc
                     );
+                    $matchLevel = $this->staticProxies->matchLevel($staticProxy, $appointment->city, $appointment->region, $cc);
+                    $providerLabel = $this->providerLabel($staticProxy->provider);
                     $profile->proxy_label = $staticProxy->label ?: $staticProxy->host;
+                    $log[] = $matchLevel === 'random'
+                        ? "STATIC: no city/region/country match — using random {$providerLabel} proxy ({$staticProxy->location})"
+                        : "STATIC: matched {$providerLabel} proxy — {$staticProxy->location} (".str_replace('_', '+', $matchLevel).' match)';
                     $mlId = $this->multiloginFor($appointment)->create_static_profile(
                         $name,
                         $staticProxy->toMultiloginProxy()
@@ -298,6 +317,8 @@ class AppointmentService
                 $profile->multilogin_profile_id = $mlId;
                 $profile->status = 'created';
                 $profile->save();
+                $createdNames[] = $name;
+                $log[] = '✓ Created '.strtoupper($role).' profile: '.$name;
 
                 $numberRow = $this->numbers->findForCompany((int) $appointment->company_id, $number);
                 if ($numberRow) {
@@ -317,14 +338,26 @@ class AppointmentService
                 $profile->save();
                 $this->audit->log('Multilogin profile creation failed', "{$name}: {$exc->getMessage()}");
                 $failed[] = ['role' => $role, 'error' => $exc->getMessage()];
+                $log[] = '✗ '.strtoupper($role).' failed: '.$exc->getMessage();
             }
         }
 
         return [
             'created' => $created,
+            'created_names' => $createdNames,
             'skipped' => array_values(array_diff(['geo', 'static'], $want)),
             'failed' => $failed,
+            'log' => $log,
         ];
+    }
+
+    private function providerLabel(?string $provider): string
+    {
+        return match ($provider) {
+            'proxycheap' => 'ProxyCheap',
+            'mobilehop' => 'MobileHop',
+            default => 'pool',
+        };
     }
 
     public function createProfiles(Appointment $appointment, string $mode): void
