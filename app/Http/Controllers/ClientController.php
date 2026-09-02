@@ -22,11 +22,13 @@ class ClientController extends Controller
         $companySlug = trim((string) $request->query('company', ''));
         $search = trim((string) $request->query('q', ''));
         $hasCall = $request->query('has_call'); // upcoming|any|none|''
-        $schedulePreset = trim((string) $request->query('schedule', '')); // today|tomorrow|week|''
+        // Default to Today's calls when no schedule filter is supplied.
+        $schedulePreset = $request->query('schedule') === null ? 'today' : trim((string) $request->query('schedule'));
         $scheduleFrom = trim((string) $request->query('from', ''));
         $scheduleTo = trim((string) $request->query('to', ''));
-        $sort = trim((string) $request->query('sort', 'created'));
-        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        // Default sort by scheduled call time (earliest first).
+        $sort = trim((string) $request->query('sort', 'call'));
+        $dir = strtolower((string) $request->query('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         [$rangeStart, $rangeEnd] = $this->resolveScheduleRange($schedulePreset, $scheduleFrom, $scheduleTo);
 
@@ -120,7 +122,7 @@ class ClientController extends Controller
         ]);
     }
 
-    public function createMissingProfiles(Request $request, AppointmentService $service): RedirectResponse
+    public function createMissingProfiles(Request $request, AppointmentService $service): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $role = (string) $request->input('role', 'both');
         $onlyRoles = match ($role) {

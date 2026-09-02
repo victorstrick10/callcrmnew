@@ -53,6 +53,52 @@
   </div>
 </div>
 
+<div class="panel">
+  <div class="panel-head">
+    <div><h2>Company health</h2><p>Live status per company — green = live, red = down/expired</p></div>
+    <form method="post" action="{{ route('system.check-all') }}" class="js-progress" style="margin:0">@csrf<button class="btn btn-primary" type="submit">🔌 Run all system checks</button></form>
+  </div>
+  <div class="card-grid">
+    @php $stLabel = ['up' => 'Live', 'down' => 'Down', 'unknown' => 'Not tested']; @endphp
+    @forelse ($companies as $co)
+      <div class="company-card">
+        <div class="company-card-head">
+          <div class="client-avatar">{{ mb_strtoupper(mb_substr($co->name, 0, 1)) }}</div>
+          <div><h3>{{ $co->name }}</h3><p>{{ $co->slug }}</p></div>
+        </div>
+        <div class="svc-status-row">
+          @foreach ([['lead', 'Lead API'], ['calendly', 'Calendly'], ['multilogin', 'Multilogin']] as [$svc, $label])
+            @php $st = $co->serviceState($svc); @endphp
+            <span class="svc-status state-{{ $st }}" title="{{ $co->serviceMessage($svc) ?: 'Not tested' }}"><span class="dot"></span>{{ $label }}: {{ $stLabel[$st] ?? '—' }}</span>
+          @endforeach
+        </div>
+        <a class="text-link" href="{{ route('companies.edit', $co) }}">Open company →</a>
+      </div>
+    @empty
+      <div class="empty-card">No companies yet.</div>
+    @endforelse
+  </div>
+</div>
+
+<div class="grid-2">
+  @foreach ([['Today', $todayCalls], ['Tomorrow', $tomorrowCalls]] as [$label, $data])
+    @php $copyText = $label." Calls\n".$data['count']." Calls\n".implode("\n", $data['times']); @endphp
+    <div class="panel">
+      <div class="panel-head">
+        <div><h2>{{ $label }} Calls</h2><p>{{ $data['date'] }} · {{ $data['count'] }} calls · GMT+1</p></div>
+        <button type="button" class="btn btn-secondary copy-btn" data-copy="{{ $copyText }}">⧉ Copy</button>
+      </div>
+      <div class="times-list">
+        @forelse ($data['times'] as $t)
+          <span class="time-chip">{{ $t }}</span>
+        @empty
+          <span class="muted">No calls scheduled.</span>
+        @endforelse
+      </div>
+    </div>
+  @endforeach
+</div>
+
 <div class="stat-grid wrap compact">
   <a class="stat-card" href="{{ route('clients.index') }}"><span>Total bookings</span><strong>{{ $stats['appointments'] }}</strong><small>All CRM appointments</small></a>
   <a class="stat-card" href="{{ route('clients.index', ['has_call' => 'upcoming']) }}"><span>Confirmed calls</span><strong>{{ $stats['scheduled'] }}</strong><small>Scheduled &amp; active</small></a>

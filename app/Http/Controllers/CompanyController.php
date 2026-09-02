@@ -106,6 +106,64 @@ class CompanyController extends Controller
     }
 
     /**
+     * Run every service check (Lead API, Calendly, Multilogin) for all companies
+     * and update their green/red status lights.
+     */
+    public function runAllChecks(
+        Request $request,
+        CompanyLeadApiClient $lead,
+        CalendlyApiClient $calendly,
+        MultiloginClient $multilogin
+    ): RedirectResponse|\Illuminate\Http\JsonResponse {
+        @set_time_limit(180);
+        $log = [];
+
+        foreach (Company::query()->orderBy('name')->get() as $company) {
+            // Lead API
+            if ($company->lead_api_url) {
+                try {
+                    $rows = $lead->fetchAll($company);
+                    $company->setServiceStatus('lead', true, count($rows).' rows');
+                    $log[] = "✓ {$company->name} · Lead API (".count($rows).' rows)';
+                } catch (Throwable $e) {
+                    $company->setServiceStatus('lead', false, $e->getMessage());
+                    $log[] = "✗ {$company->name} · Lead API: ".$e->getMessage();
+                }
+            } else {
+                $company->setServiceStatus('lead', false, 'No Lead API URL');
+                $log[] = "• {$company->name} · Lead API not configured";
+            }
+
+            // Calendly
+            if ($company->getCalendlyApiToken()) {
+                try {
+                    $me = $calendly->testToken($company);
+                    $company->setServiceStatus('calendly', true, 'OK — '.($me['user_uri'] ?? 'user'));
+                    $log[] = "✓ {$company->name} · Calendly";
+                } catch (Throwable $e) {
+                    $company->setServiceStatus('calendly', false, $e->getMessage());
+                    $log[] = "✗ {$company->name} · Calendly: ".$e->getMessage();
+                }
+            } else {
+                $company->setServiceStatus('calendly', false, 'No Calendly token');
+                $log[] = "• {$company->name} · Calendly not configured";
+            }
+
+            // Multilogin token
+            [$ok, $msg] = $multilogin->forCompany($company)->pingToken();
+            $company->setServiceStatus('multilogin', $ok, $msg);
+            $log[] = ($ok ? '✓' : '✗')." {$company->name} · Multilogin: {$msg}";
+        }
+
+        $message = 'System checks complete for all companies.';
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, 'message' => $message, 'log' => $log, 'created' => []]);
+        }
+
+        return back()->with('success', $message);
+    }
+
+    /**
      * Ping the company's Multilogin token and update the live/expired status light.
      */
     public function testMultilogin(Company $company, MultiloginClient $multilogin): RedirectResponse

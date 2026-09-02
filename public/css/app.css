@@ -270,3 +270,8 @@ a.stat-card:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(30,41,5
 .conn-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px 14px;padding:6px 2px}
 .conn-grid label{margin:0 0 4px}
 @media(max-width:900px){.conn-grid{grid-template-columns:1fr 1fr}}
+
+/* Dashboard call-time lists */
+.times-list{display:flex;flex-wrap:wrap;gap:8px}
+.time-chip{background:#eef1f6;border:1px solid var(--line);border-radius:9px;padding:7px 12px;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.copy-btn{white-space:nowrap}

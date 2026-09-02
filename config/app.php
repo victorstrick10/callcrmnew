@@ -72,6 +72,13 @@ return [
     'timezone' => 'UTC',
 
     /*
+    | Display timezone for operator-facing call lists (dashboard today/tomorrow,
+    | copy lists). Calendly stores times in UTC; this shows them in your working
+    | timezone. Defaults to GMT+1 (Europe/Belgrade, CET/CEST).
+    */
+    'display_timezone' => env('DISPLAY_TZ', 'Europe/Belgrade'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

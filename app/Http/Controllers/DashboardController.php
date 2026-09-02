@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Company;
 use App\Services\DashboardService;
 use App\Services\SystemStatusService;
 use Illuminate\View\View;
@@ -16,6 +17,9 @@ class DashboardController extends Controller
             'pending' => $dashboard->pendingProfiles(),
             'recentLogs' => $dashboard->recentLogs(),
             'systemStatus' => $status->snapshot(),
+            'companies' => Company::query()->orderBy('name')->get(),
+            'todayCalls' => $dashboard->callTimes(0),
+            'tomorrowCalls' => $dashboard->callTimes(1),
         ]);
     }
 }

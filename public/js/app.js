@@ -226,6 +226,26 @@ setTimeout(() => {
   });
 })();
 
+// Copy-to-clipboard buttons (e.g. dashboard call-time lists).
+document.querySelectorAll('.copy-btn').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const text = btn.dataset.copy || '';
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      ta.remove();
+    }
+    const original = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  });
+});
+
 // Static Proxies: toggle the hidden connection (host/port/user/pass) row.
 document.querySelectorAll('.proxy-conn-toggle').forEach((btn) => {
   btn.addEventListener('click', () => {
