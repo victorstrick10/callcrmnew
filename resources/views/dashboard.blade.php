@@ -50,18 +50,19 @@
   </div>
 </div>
 
-<div class="stat-grid wrap">
+<div class="stat-grid wrap compact">
   <div class="stat-card"><span>Total bookings</span><strong>{{ $stats['appointments'] }}</strong><small>All CRM appointments</small></div>
   <div class="stat-card"><span>Confirmed calls</span><strong>{{ $stats['scheduled'] }}</strong><small>Scheduled &amp; active</small></div>
-  <div class="stat-card"><span>Calls today</span><strong>{{ $stats['calls_today'] }}</strong><small>Starting within 24h</small></div>
-  <div class="stat-card accent"><span>Pending profiles</span><strong>{{ $stats['pending_profiles'] }}</strong><small>Need GEO / STATIC</small></div>
-  <div class="stat-card"><span>Profiles created</span><strong>{{ $stats['profiles'] }}</strong><small>Multilogin workspaces</small></div>
-  <div class="stat-card danger"><span>Failed actions</span><strong>{{ $stats['failed'] }}</strong><small>Require review</small></div>
+  <div class="stat-card"><span>Calls today</span><strong>{{ $stats['calls_today'] }}</strong><small>All companies</small></div>
+  <div class="stat-card"><span>Calls tomorrow</span><strong>{{ $stats['calls_tomorrow'] }}</strong><small>All companies</small></div>
+  <div class="stat-card accent"><span>Pending today</span><strong>{{ $stats['pending_profiles'] }}</strong><small>Need GEO / STATIC</small></div>
+  <div class="stat-card"><span>Profiles created</span><strong>{{ $stats['profiles'] }}</strong><small>Multilogin</small></div>
+  <div class="stat-card danger"><span>Failed</span><strong>{{ $stats['failed'] }}</strong><small>Require review</small></div>
 </div>
 
 <div class="grid-2">
   <div class="panel">
-    <div class="panel-head"><div><h2>Pending browser profiles</h2><p>Confirmed calls still missing a profile</p></div><a class="text-link" href="{{ route('appointments.index') }}">All appointments</a></div>
+    <div class="panel-head"><div><h2>Pending browser profiles</h2><p>Today · {{ \Illuminate\Support\Carbon::now(config('app.timezone'))->format('D d.m.Y') }} · both companies</p></div><a class="text-link" href="{{ route('clients.index', ['schedule' => 'today']) }}">Today’s clients</a></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Client</th><th>Call</th><th>Location</th><th>Missing</th><th></th></tr></thead>
@@ -72,7 +73,7 @@
           @endphp
           <tr class="click-row" data-href="{{ route('appointments.show', $a) }}">
             <td><strong>{{ $a->contact->full_name }}</strong><small>{{ $a->company?->name }}</small></td>
-            <td>{{ $a->start_time ? $a->start_time->format('d.m.Y H:i') : 'Not set' }}</td>
+            <td>{{ $a->localStart() ? $a->localStart()->format('d.m.Y H:i') : 'Not set' }}</td>
             <td>{{ $a->city ?: 'Unknown' }}@if($a->region), {{ $a->region }}@endif</td>
             <td>
               @unless($roles->contains('geo'))<span class="badge badge-reserved">GEO</span>@endunless
@@ -89,7 +90,7 @@
   </div>
 
   <div class="panel">
-    <div class="panel-head"><div><h2>Upcoming calls</h2><p>Next confirmed appointments</p></div><a class="text-link" href="{{ route('appointments.index') }}">View all</a></div>
+    <div class="panel-head"><div><h2>Upcoming calls</h2><p>Tomorrow · {{ \Illuminate\Support\Carbon::now(config('app.timezone'))->addDay()->format('D d.m.Y') }} · both companies</p></div><a class="text-link" href="{{ route('clients.index', ['schedule' => 'tomorrow']) }}">Tomorrow’s clients</a></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Client</th><th>Call</th><th>Location</th><th>Status</th></tr></thead>
@@ -97,12 +98,12 @@
         @forelse ($upcoming as $a)
           <tr class="click-row" data-href="{{ route('appointments.show', $a) }}">
             <td><strong>{{ $a->contact->full_name }}</strong><small>{{ $a->contact->email }}</small></td>
-            <td>{{ $a->start_time ? $a->start_time->format('d.m.Y H:i') : 'Not set' }}</td>
+            <td>{{ $a->localStart() ? $a->localStart()->format('d.m.Y H:i') : 'Not set' }}</td>
             <td>{{ $a->city ?: 'Unknown' }}@if($a->country), {{ $a->country }}@endif</td>
             <td><span class="badge badge-{{ $a->status }}">{{ $a->status }}</span></td>
           </tr>
         @empty
-          <tr><td colspan="4" class="empty">No upcoming calls.</td></tr>
+          <tr><td colspan="4" class="empty">No calls scheduled for tomorrow.</td></tr>
         @endforelse
         </tbody>
       </table>

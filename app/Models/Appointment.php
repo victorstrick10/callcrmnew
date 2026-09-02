@@ -53,6 +53,8 @@ class Appointment extends Model
         'proxy_actual_region',
         'proxy_actual_city',
         'proxy_candidates_json',
+        'geo_json',
+        'geo_enriched_at',
     ];
 
     protected $casts = [
@@ -60,6 +62,8 @@ class Appointment extends Model
         'end_time' => 'datetime',
         'proxy_created_at' => 'datetime',
         'proxy_candidates_json' => 'array',
+        'geo_json' => 'array',
+        'geo_enriched_at' => 'datetime',
         'latitude' => 'float',
         'longitude' => 'float',
         'proxy_port' => 'integer',
@@ -78,5 +82,43 @@ class Appointment extends Model
     public function profiles(): HasMany
     {
         return $this->hasMany(BrowserProfile::class);
+    }
+
+    /** Start time converted to the invitee's Calendly timezone for display. */
+    public function localStart(): ?\Illuminate\Support\Carbon
+    {
+        return $this->inInviteeTz($this->start_time);
+    }
+
+    /** End time converted to the invitee's Calendly timezone for display. */
+    public function localEnd(): ?\Illuminate\Support\Carbon
+    {
+        return $this->inInviteeTz($this->end_time);
+    }
+
+    private function inInviteeTz(?\Illuminate\Support\Carbon $value): ?\Illuminate\Support\Carbon
+    {
+        if (! $value) {
+            return null;
+        }
+
+        $tz = trim((string) $this->invitee_timezone);
+        if ($tz === '') {
+            return $value;
+        }
+
+        try {
+            return $value->copy()->setTimezone($tz);
+        } catch (\Throwable) {
+            return $value;
+        }
+    }
+
+    /** Short timezone abbreviation for the invitee (e.g. CEST), for display. */
+    public function inviteeTzAbbr(): string
+    {
+        $local = $this->localStart();
+
+        return $local ? $local->format('T') : '';
     }
 }

@@ -96,6 +96,8 @@ class AppointmentService
         $appointment->client_org = $result['org'] ?? '';
         $appointment->client_isp = ($result['isp'] ?? '') ?: $this->multilogin->_isp_name($result);
         $appointment->client_asn = $result['asn'] ?? '';
+        $appointment->geo_json = $result['raw'] ?? $result;
+        $appointment->geo_enriched_at = now();
         $appointment->save();
 
         $this->audit->log(
@@ -104,6 +106,43 @@ class AppointmentService
         );
 
         return $appointment;
+    }
+
+    /**
+     * Bulk-enrich appointments that have a captured IP but have not been
+     * geolocated yet. Bounded per run so it is safe for a request or a
+     * scheduled background job. Returns counts.
+     *
+     * @return array{enriched:int,failed:int,remaining:int}
+     */
+    public function enrichPending(int $limit = 200): array
+    {
+        if (! ($this->settings->getSettings('ipinfo')['api_token'] ?? '')) {
+            return ['enriched' => 0, 'failed' => 0, 'remaining' => 0];
+        }
+
+        $base = Appointment::query()
+            ->whereNotNull('ip_address')
+            ->where('ip_address', '!=', '')
+            ->whereNull('geo_enriched_at');
+
+        $remaining = (clone $base)->count();
+
+        $enriched = 0;
+        $failed = 0;
+        foreach ($base->orderByDesc('start_time')->limit($limit)->get() as $appointment) {
+            try {
+                $this->enrich($appointment);
+                $enriched++;
+                usleep(120000); // gentle pacing for the IPinfo API
+            } catch (Throwable $e) {
+                $failed++;
+                // Mark as attempted so a single bad IP doesn't block the queue forever.
+                $appointment->forceFill(['geo_enriched_at' => now()])->save();
+            }
+        }
+
+        return ['enriched' => $enriched, 'failed' => $failed, 'remaining' => max(0, $remaining - $enriched - $failed)];
     }
 
     public function getProxy(Appointment $appointment, int $candidateCount = 5, bool $autoSelect = true): array

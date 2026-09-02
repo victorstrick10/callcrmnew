@@ -233,3 +233,13 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .svc-status.state-down{background:#fdecee;color:#b42337}.svc-status.state-down .dot{background:#ef4444}
 .svc-status.state-unknown{background:#f4f6fa;color:#8a94a6}.svc-status.state-unknown .dot{background:#cbd5e1}
 .company-keys{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted)}
+
+/* Compact stat cards + GEO lines */
+.stat-grid.compact{gap:12px}
+.stat-grid.compact .stat-card{padding:14px 16px;border-radius:14px}
+.stat-grid.compact .stat-card strong{font-size:24px;margin:6px 0 4px}
+.stat-grid.compact .stat-card span{font-size:12px}
+.stat-grid.compact .stat-card small{font-size:11px}
+.geo-lines{display:flex;flex-direction:column;gap:2px;font-size:12px}
+.geo-lines span{display:flex;gap:6px;color:#334155}
+.geo-lines b{display:inline-block;min-width:56px;color:#94a3b8;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px}

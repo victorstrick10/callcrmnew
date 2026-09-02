@@ -209,6 +209,23 @@ class ClientController extends Controller
     }
 
     /**
+     * Run IPinfo geolocation for a bounded batch of leads that have a captured
+     * IP but are not enriched yet. The rest is picked up by the 15-minute
+     * background job (ipinfo:enrich).
+     */
+    public function enrichGeo(Request $request, AppointmentService $service): RedirectResponse
+    {
+        @set_time_limit(120);
+        $result = $service->enrichPending(150);
+
+        $msg = "IPinfo: enriched {$result['enriched']} lead(s)"
+            .($result['failed'] ? ", {$result['failed']} failed" : '')
+            .($result['remaining'] ? ". {$result['remaining']} remaining — the background job continues every 15 min." : '.');
+
+        return back()->with($result['enriched'] > 0 ? 'success' : 'warning', $msg);
+    }
+
+    /**
      * @return \Illuminate\Support\Collection<int, Contact>
      */
     private function filteredContacts(
@@ -278,7 +295,7 @@ class ClientController extends Controller
             $latest = $contact->appointments->sortByDesc('start_time')->first();
             $display = $inRange ?? $upcoming ?? $latest;
 
-            $contact->next_call_at = $display?->start_time;
+            $contact->next_call_at = $display?->localStart();
             $contact->next_call_status = $display?->status;
             $contact->calls_count = $contact->appointments->count();
             $contact->display_appointment_id = $display?->id;

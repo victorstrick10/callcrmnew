@@ -15,6 +15,7 @@ class DashboardService
         $tz = config('app.timezone');
         $todayStart = Carbon::now($tz)->startOfDay();
         $todayEnd = $todayStart->copy()->addDay();
+        $tomorrowEnd = $todayEnd->copy()->addDay();
 
         return [
             'appointments' => Appointment::query()->count(),
@@ -26,6 +27,10 @@ class DashboardService
                 ->where('status', 'scheduled')
                 ->whereBetween('start_time', [$todayStart, $todayEnd])
                 ->count(),
+            'calls_tomorrow' => Appointment::query()
+                ->where('status', 'scheduled')
+                ->whereBetween('start_time', [$todayEnd, $tomorrowEnd])
+                ->count(),
             'calls_upcoming' => Appointment::query()
                 ->where('status', 'scheduled')
                 ->where('start_time', '>=', Carbon::now($tz))
@@ -35,15 +40,20 @@ class DashboardService
     }
 
     /**
-     * Scheduled appointments still missing a GEO and/or STATIC Multilogin
-     * profile (fewer than the two expected active-role profiles).
+     * TODAY's scheduled calls (all companies) still missing a GEO and/or STATIC
+     * Multilogin profile.
      */
     public function pendingProfiles(int $limit = 8)
     {
+        $tz = config('app.timezone');
+        $todayStart = Carbon::now($tz)->startOfDay();
+        $todayEnd = $todayStart->copy()->addDay();
+
         return Appointment::query()
             ->with(['contact', 'company', 'profiles'])
             ->where('status', 'scheduled')
-            ->orderByDesc('start_time')
+            ->whereBetween('start_time', [$todayStart, $todayEnd])
+            ->orderBy('start_time')
             ->get()
             ->filter(function (Appointment $a) {
                 $roles = $a->profiles
@@ -57,12 +67,19 @@ class DashboardService
             ->values();
     }
 
-    public function upcoming(int $limit = 8)
+    /**
+     * TOMORROW's scheduled calls (all companies).
+     */
+    public function upcoming(int $limit = 12)
     {
+        $tz = config('app.timezone');
+        $tomorrowStart = Carbon::now($tz)->addDay()->startOfDay();
+        $tomorrowEnd = $tomorrowStart->copy()->addDay();
+
         return Appointment::query()
             ->with(['contact', 'company'])
             ->where('status', 'scheduled')
-            ->where('start_time', '>=', Carbon::now(config('app.timezone'))->startOfDay())
+            ->whereBetween('start_time', [$tomorrowStart, $tomorrowEnd])
             ->orderBy('start_time')
             ->limit($limit)
             ->get();

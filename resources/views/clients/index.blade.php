@@ -87,6 +87,7 @@
       <p>{{ $contacts->count() }} result(s) · click a row for full lead data</p>
     </div>
     <div class="form-actions" style="margin:0">
+      <form method="post" action="{{ route('clients.enrich-geo') }}" style="display:inline;margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Run IPinfo geolocation for leads with an IP">🌐 Run IPinfo (geo)</button></form>
       <a class="btn btn-secondary" href="{{ route('clients.export', $baseQuery) }}">⭳ Export CSV</a>
       <button class="btn btn-primary" type="submit" form="bulkProfilesForm">＋ Create profiles (selected / all)</button>
     </div>
@@ -101,8 +102,7 @@
           <th>{!! $sortLink('name', 'Lead') !!}</th>
           <th>{!! $sortLink('company', 'Company') !!}</th>
           <th>{!! $sortLink('call', 'Scheduled call') !!}</th>
-          <th>{!! $sortLink('location', 'Geo location') !!}</th>
-          <th>Provider (ISP)</th>
+          <th>{!! $sortLink('location', 'GEO (IPinfo)') !!}</th>
           <th>Profiles</th>
           <th>{!! $sortLink('calls', 'Calls') !!}</th>
           <th style="width:120px">Action</th>
@@ -165,18 +165,15 @@
             @endif
           </td>
           <td class="col-geo">
-            @if ($c->geo_city || $c->geo_region || $c->geo_country)
-              <strong>{{ collect([$c->geo_city, $c->geo_region])->filter()->implode(', ') ?: '—' }}</strong>
-              <small>{{ $c->geo_country ?: $c->geo_country_code ?: '' }}</small>
+            @if ($c->geo_country || $c->geo_region || $c->geo_city || $c->geo_provider)
+              <div class="geo-lines">
+                <span><b>Country</b>{{ $c->geo_country ?: $c->geo_country_code ?: '—' }}</span>
+                <span><b>Region</b>{{ $c->geo_region ?: '—' }}</span>
+                <span><b>City</b>{{ $c->geo_city ?: '—' }}</span>
+                <span><b>ISP</b>{{ $c->geo_provider ?: '—' }}</span>
+              </div>
             @else
-              <span class="muted">Unknown</span>
-            @endif
-          </td>
-          <td>
-            @if ($c->geo_provider)
-              <span class="isp-tag">{{ $c->geo_provider }}</span>
-            @else
-              <span class="muted">—</span>
+              <span class="muted">Not enriched</span>
             @endif
           </td>
           <td class="col-profiles">
@@ -202,7 +199,7 @@
           </td>
         </tr>
       @empty
-        <tr><td colspan="9" class="empty">No clients match these filters.</td></tr>
+        <tr><td colspan="8" class="empty">No clients match these filters.</td></tr>
       @endforelse
       </tbody>
     </table>

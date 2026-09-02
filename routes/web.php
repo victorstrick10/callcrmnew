@@ -31,6 +31,7 @@ Route::get('/clients', [ClientController::class, 'index'])->name('clients.index'
 Route::get('/clients/export', [ClientController::class, 'export'])->name('clients.export');
 Route::post('/clients/create-missing-profiles', [ClientController::class, 'createMissingProfiles'])
     ->name('clients.create-missing-profiles');
+Route::post('/clients/enrich-geo', [ClientController::class, 'enrichGeo'])->name('clients.enrich-geo');
 
 Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
 Route::get('/companies/create', [CompanyController::class, 'create'])->name('companies.create');

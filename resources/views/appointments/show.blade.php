@@ -2,7 +2,7 @@
 
 @section('title', $appointment->contact->full_name)
 @section('page_title', $appointment->contact->full_name)
-@section('page_subtitle', $appointment->event_name.' · '.($appointment->start_time ? $appointment->start_time->format('d.m.Y H:i') : 'No date'))
+@section('page_subtitle', $appointment->event_name.' · '.($appointment->start_time ? $appointment->localStart()->format('d.m.Y H:i').' '.$appointment->inviteeTzAbbr() : 'No date'))
 
 @section('content')
 <div class="hero-card">

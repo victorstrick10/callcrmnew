@@ -13,6 +13,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('leads:sync')->everyFifteenMinutes();
+        $schedule->command('ipinfo:enrich')->everyFifteenMinutes()->withoutOverlapping();
     }
 
     /**

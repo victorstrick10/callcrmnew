@@ -67,7 +67,7 @@
           <th>{!! $sortLink('client', 'Client') !!}</th>
           <th>{!! $sortLink('event', 'Event') !!}</th>
           <th>{!! $sortLink('date', 'Date') !!}</th>
-          <th>{!! $sortLink('location', 'Location') !!}</th>
+          <th>{!! $sortLink('location', 'GEO (IPinfo)') !!}</th>
           <th>{!! $sortLink('profiles', 'Profiles') !!}</th>
           <th>{!! $sortLink('status', 'Status') !!}</th>
         </tr>
@@ -78,8 +78,19 @@
           <td>{{ $a->company?->name ?? '—' }}</td>
           <td><strong>{{ $a->contact->full_name }}</strong><small>{{ $a->contact->email }}</small></td>
           <td>{{ $a->event_name }}</td>
-          <td>{{ $a->start_time ? $a->start_time->format('d.m.Y H:i') : 'Not set' }}</td>
-          <td>{{ $a->city ?: 'Unknown' }}@if($a->region), {{ $a->region }}@endif</td>
+          <td>@if($a->start_time)<strong>{{ $a->localStart()->format('d.m.Y H:i') }}</strong><small>{{ $a->inviteeTzAbbr() ?: $a->invitee_timezone }}</small>@else Not set @endif</td>
+          <td class="col-geo">
+            @if ($a->country || $a->region || $a->city || $a->client_isp)
+              <div class="geo-lines">
+                <span><b>Country</b>{{ $a->country ?: $a->country_code ?: '—' }}</span>
+                <span><b>Region</b>{{ $a->region ?: '—' }}</span>
+                <span><b>City</b>{{ $a->city ?: '—' }}</span>
+                <span><b>ISP</b>{{ $a->client_isp ?: $a->client_org ?: '—' }}</span>
+              </div>
+            @else
+              <span class="muted">Not enriched</span>
+            @endif
+          </td>
           <td><span class="pill-count">{{ $a->profiles->count() }}/2</span></td>
           <td><span class="badge badge-{{ $a->status }}">{{ $a->status }}</span></td>
         </tr>
