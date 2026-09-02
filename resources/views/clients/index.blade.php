@@ -140,10 +140,16 @@
             'appointments' => $c->appointments->map(fn ($a) => [
               'id' => $a->id,
               'event_name' => $a->event_name,
-              'start_time' => optional($a->start_time)->format('d.m.Y H:i'),
-              'end_time' => optional($a->end_time)->format('d.m.Y H:i'),
+              'start_time' => optional($a->localStart())->format('d.m.Y H:i'),
+              'end_time' => optional($a->localEnd())->format('d.m.Y H:i'),
               'status' => $a->status,
               'timezone' => $a->invitee_timezone,
+              'ip' => $a->ip_address,
+              'country' => $a->country ?: $a->country_code,
+              'country_code' => $a->country_code,
+              'region' => $a->region,
+              'city' => $a->city,
+              'isp' => $a->client_isp ?: $a->client_org,
             ])->values()->all(),
             'lead_raw_json' => $c->lead_raw_json,
           ];

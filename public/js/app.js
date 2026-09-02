@@ -26,6 +26,12 @@ setTimeout(() => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+  const flag = (cc) => {
+    cc = String(cc || '').toUpperCase();
+    if (!/^[A-Z]{2}$/.test(cc)) return '';
+    return String.fromCodePoint(...[...cc].map((c) => 127397 + c.charCodeAt(0)));
+  };
+
   const row = (label, value) => {
     const text = value === null || value === undefined || value === '' ? '—' : value;
     return `<div class="detail-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(text)}</strong></div>`;
@@ -36,11 +42,19 @@ setTimeout(() => {
     subtitle.textContent = lead.email || 'Full lead + call history';
 
     const calls = Array.isArray(lead.appointments) ? lead.appointments : [];
+    const distinctIps = [...new Set(calls.map((a) => (a.ip || '').trim()).filter(Boolean))];
+    const multiHint = distinctIps.length > 1
+      ? `<p class="muted">📱 ${distinctIps.length} different device IPs across calls — each call's geo is checked separately below.</p>`
+      : '';
+    const geoCell = (a) => {
+      const loc = [a.city, a.region, a.country].map((x) => (x || '').trim()).filter(Boolean).join(', ');
+      return loc ? `${flag(a.country_code)} ${escapeHtml(loc)}` : '<span class="muted">Not enriched</span>';
+    };
     const callsHtml = calls.length
-      ? `<div class="modal-section"><h3>Calls</h3><div class="table-wrap"><table><thead><tr><th>Event</th><th>Start</th><th>End</th><th>Status</th></tr></thead><tbody>${
-          calls.map((a) => `<tr><td>${escapeHtml(a.event_name)}<small>#${escapeHtml(a.id)}</small></td><td>${escapeHtml(a.start_time || '—')}</td><td>${escapeHtml(a.end_time || '—')}</td><td><span class="badge badge-${escapeHtml(a.status || '')}">${escapeHtml(a.status || '—')}</span></td></tr>`).join('')
+      ? `<div class="modal-section"><h3>Calls &amp; devices</h3>${multiHint}<div class="table-wrap"><table><thead><tr><th>Event</th><th>Start</th><th>Status</th><th>Device IP</th><th>Geo (IPinfo)</th><th>ISP</th></tr></thead><tbody>${
+          calls.map((a) => `<tr><td>${escapeHtml(a.event_name)}<small>#${escapeHtml(a.id)}</small></td><td>${escapeHtml(a.start_time || '—')}</td><td><span class="badge badge-${escapeHtml(a.status || '')}">${escapeHtml(a.status || '—')}</span></td><td><code>${escapeHtml(a.ip || '—')}</code></td><td>${geoCell(a)}</td><td>${escapeHtml(a.isp || '—')}</td></tr>`).join('')
         }</tbody></table></div></div>`
-      : '<div class="modal-section"><h3>Calls</h3><p class="muted">No calls linked yet.</p></div>';
+      : '<div class="modal-section"><h3>Calls &amp; devices</h3><p class="muted">No calls linked yet.</p></div>';
 
     const raw = lead.lead_raw_json
       ? `<div class="modal-section"><h3>Raw lead payload</h3><pre class="code-block">${escapeHtml(JSON.stringify(lead.lead_raw_json, null, 2))}</pre></div>`
