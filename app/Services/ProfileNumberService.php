@@ -201,7 +201,14 @@ class ProfileNumberService
         }
     }
 
-    public function syncFromProfiles(int $companyId, array $profiles): array
+    /**
+     * @param  bool  $allowRelease  When true, numbers previously marked "created"
+     *   that are absent from the fetched profile list are freed back to
+     *   "available". This must be false for simulation runs and is force-disabled
+     *   when the fetched list is empty, so a simulated or failed/empty fetch can
+     *   never wipe the real number inventory shown on the Profile Numbers page.
+     */
+    public function syncFromProfiles(int $companyId, array $profiles, bool $allowRelease = true): array
     {
         $this->initializeForCompany($companyId);
 
@@ -213,6 +220,10 @@ class ProfileNumberService
             }
         }
 
+        // Only release stale "created" numbers when we trust the fetched list:
+        // an explicit real (non-simulation) sync that actually returned profiles.
+        $release = $allowRelease && count($profiles) > 0;
+
         foreach (ProfileNumber::query()->where('company_id', $companyId)->cursor() as $row) {
             if (isset($occupied[$row->number])) {
                 $profile = $occupied[$row->number];
@@ -220,7 +231,7 @@ class ProfileNumberService
                 $row->multilogin_profile_id = (string) ($profile['id'] ?? '');
                 $row->profile_name = (string) ($profile['name'] ?? '');
                 $row->save();
-            } elseif ($row->status === 'created') {
+            } elseif ($release && $row->status === 'created') {
                 $row->status = 'available';
                 $row->multilogin_profile_id = '';
                 $row->profile_name = '';

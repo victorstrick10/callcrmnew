@@ -199,6 +199,7 @@ class SettingsService
         $client = $this->multilogin->forCompany($company);
         $profiles = $client->search_profiles();
 
-        return $this->numbers->syncFromProfiles($company->id, $profiles);
+        // Never let a Simulation-mode sync clear the real number inventory.
+        return $this->numbers->syncFromProfiles($company->id, $profiles, ! $client->simulation);
     }
 }

@@ -213,8 +213,9 @@ class AppointmentService
         }
 
         $company = $this->requireCompanyMultilogin($appointment);
-        $mlProfiles = $this->multiloginFor($appointment)->search_profiles();
-        $this->numbers->syncFromProfiles($company->id, $mlProfiles);
+        $mlClient = $this->multiloginFor($appointment);
+        $mlProfiles = $mlClient->search_profiles();
+        $this->numbers->syncFromProfiles($company->id, $mlProfiles, ! $mlClient->simulation);
 
         $number = $this->numbers->allocateNumberForAppointment($appointment->id);
         $created = [];
