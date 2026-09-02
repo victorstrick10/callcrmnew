@@ -40,11 +40,11 @@
 
 <div class="panel">
   <div class="panel-head">
-    <div><h2>Synchronization</h2><p>Load Multilogin names for <strong>{{ $company->name }}</strong> using that company’s token and mark numbers busy</p></div>
+    <div><h2>Refresh from Multilogin</h2><p>Re-reads <strong>{{ $company->name }}</strong>'s Multilogin workspace: marks used numbers, frees numbers whose profile was deleted, and flags deleted profiles in the CRM</p></div>
     <form method="post" action="{{ route('numbers.sync') }}">
       @csrf
       <input type="hidden" name="company_id" value="{{ $company->id }}">
-      <button class="btn btn-primary" type="submit">Sync Multilogin profiles</button>
+      <button class="btn btn-primary" type="submit">↻ Refresh from Multilogin</button>
     </form>
   </div>
 </div>

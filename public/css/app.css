@@ -252,3 +252,5 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .log-line{font-size:13px;padding:9px 12px;border-radius:10px;background:#f6f8fc;border:1px solid var(--line);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .log-line.good{background:#e7f8f0;color:#137a50;border-color:#bfe9d4}
 .log-line.bad{background:#fdecee;color:#b42337;border-color:#f5c2c8}
+
+.badge-deleted{background:#eef1f6;color:#8a94a6;text-decoration:line-through}

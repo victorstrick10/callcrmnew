@@ -242,6 +242,22 @@ class ProfileNumberService
             }
         }
 
+        // Reconcile deletions: profiles removed on Multilogin are marked deleted
+        // in the CRM so they no longer show as "created".
+        if ($release) {
+            $existingIds = array_values(array_filter(array_map(
+                fn ($p) => (string) ($p['id'] ?? ''),
+                $profiles
+            )));
+
+            BrowserProfile::query()
+                ->whereHas('appointment', fn ($q) => $q->where('company_id', $companyId))
+                ->where('status', 'created')
+                ->where('multilogin_profile_id', '!=', '')
+                ->whereNotIn('multilogin_profile_id', $existingIds)
+                ->update(['status' => 'deleted']);
+        }
+
         $usedNumbers = array_keys($occupied);
         sort($usedNumbers);
         $highestUsed = $usedNumbers ? max($usedNumbers) : 0;
