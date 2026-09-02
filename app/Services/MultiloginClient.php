@@ -842,6 +842,54 @@ class MultiloginClient
         return [true, $result['message']];
     }
 
+    /**
+     * Refresh the current bearer token via POST /user/refresh_token so a valid
+     * token is always available. Returns the new token, or null if refresh is
+     * not available (e.g. simulation, no token, or endpoint not supported).
+     */
+    public function refresh_token(): ?string
+    {
+        if ($this->simulation || $this->token === '') {
+            return null;
+        }
+
+        foreach (['/user/refresh_token', '/v1/user/refresh_token', '/api/v1/user/refresh_token'] as $path) {
+            try {
+                $response = Http::withHeaders($this->headers())
+                    ->timeout(20)
+                    ->post($this->base_url.$path, ['token' => $this->token, 'email' => $this->cfg['email'] ?? '']);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if (! $response->successful()) {
+                continue;
+            }
+
+            $token = self::_extract_token($response->json());
+            if ($token) {
+                return $token;
+            }
+        }
+
+        return null;
+    }
+
+    public static function _extract_token($body): ?string
+    {
+        $data = (is_array($body) && array_key_exists('data', $body)) ? $body['data'] : $body;
+
+        if (is_array($data)) {
+            foreach (['token', 'access_token', 'accessToken', 'bearer', 'jwt'] as $key) {
+                if (! empty($data[$key]) && is_string($data[$key])) {
+                    return $data[$key];
+                }
+            }
+        }
+
+        return is_string($body) && $body !== '' ? $body : null;
+    }
+
     public function search_profiles(): array
     {
         if ($this->simulation) {
