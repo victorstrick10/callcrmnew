@@ -10,13 +10,17 @@
 @endphp
 
 <div class="tabs" role="tablist">
-  <a class="chip-btn {{ ($provider ?? '') === '' ? 'chip-active' : '' }}" href="{{ route('static-proxies.index') }}">All ({{ $all->count() }})</a>
+  <a class="chip-btn {{ ($provider ?? '') === '' ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', ['type' => $type]) }}">All ({{ $scoped->count() }})</a>
   @foreach ($providers as $key => $label)
-    <a class="chip-btn {{ ($provider ?? '') === $key ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', ['provider' => $key]) }}">{{ $label }} ({{ $counts[$key] ?? 0 }})</a>
+    <a class="chip-btn {{ ($provider ?? '') === $key ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', ['provider' => $key, 'type' => $type]) }}">{{ $label }} ({{ $counts[$key] ?? 0 }})</a>
   @endforeach
   @if (($counts['other'] ?? 0) > 0)
-    <a class="chip-btn {{ ($provider ?? '') === 'other' ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', ['provider' => 'other']) }}">Other ({{ $counts['other'] }})</a>
+    <a class="chip-btn {{ ($provider ?? '') === 'other' ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', ['provider' => 'other', 'type' => $type]) }}">Other ({{ $counts['other'] }})</a>
   @endif
+</div>
+<div class="tabs" role="tablist" style="margin-top:-6px">
+  <a class="chip-btn {{ $type === 'mobile' ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', array_filter(['provider' => $provider, 'type' => 'mobile'])) }}">📱 Mobile only</a>
+  <a class="chip-btn {{ $type === 'all' ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', array_filter(['provider' => $provider, 'type' => 'all'])) }}">All types</a>
 </div>
 
 <div class="stat-grid three">
@@ -84,6 +88,14 @@
             @foreach ($providers as $key => $label)
               <option value="{{ $key }}" @selected(($provider ?? '') === $key)>{{ $label }}</option>
             @endforeach
+          </select>
+        </div>
+        <div>
+          <label>Network type</label>
+          <select name="network_type">
+            <option value="mobile" @selected(old('network_type', 'mobile') === 'mobile')>Mobile</option>
+            <option value="residential" @selected(old('network_type') === 'residential')>Residential</option>
+            <option value="">Other</option>
           </select>
         </div>
         <div><label>Label</label><input name="label" value="{{ old('label') }}" placeholder="Optional name"></div>
@@ -157,7 +169,11 @@
             @endforeach
           </select>
         </td>
-        <td><input form="{{ $formId }}" name="label" value="{{ $proxy->label }}" placeholder="—" style="min-width:120px"></td>
+        <td>
+          <input type="hidden" form="{{ $formId }}" name="network_type" value="{{ $proxy->network_type }}">
+          <input form="{{ $formId }}" name="label" value="{{ $proxy->label }}" placeholder="—" style="min-width:120px">
+          @if ($proxy->network_type)<small class="role-chip {{ $proxy->network_type === 'mobile' ? 'on' : '' }}">{{ strtoupper($proxy->network_type) }}</small>@endif
+        </td>
         <td><input form="{{ $formId }}" name="location" value="{{ $proxy->location }}" placeholder="—" style="min-width:110px"></td>
         <td><input form="{{ $formId }}" name="host" value="{{ $proxy->host }}" required style="min-width:130px"></td>
         <td><input form="{{ $formId }}" type="number" name="port" value="{{ $proxy->port }}" min="1" max="65535" required style="width:80px"></td>

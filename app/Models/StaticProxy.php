@@ -7,9 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 class StaticProxy extends Model
 {
     protected $fillable = [
-        'label', 'provider', 'location', 'host', 'port', 'username', 'password', 'protocol', 'enabled',
+        'label', 'provider', 'network_type', 'location', 'host', 'port', 'username', 'password', 'protocol', 'enabled',
         'last_check_status', 'exit_ip', 'last_checked_at',
     ];
+
+    public function scopeMobile($query)
+    {
+        return $query->where('network_type', 'mobile');
+    }
 
     protected $casts = [
         'port' => 'integer',

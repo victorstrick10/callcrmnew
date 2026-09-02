@@ -22,13 +22,17 @@ class StaticProxyController extends Controller
     public function index(Request $request): View
     {
         $provider = trim((string) $request->query('provider', ''));
+        $type = $request->query('type', 'mobile') === 'all' ? 'all' : 'mobile';
 
         $all = StaticProxy::query()->orderBy('provider')->orderBy('label')->orderBy('host')->get();
-        $proxies = $provider !== ''
-            ? $all->where('provider', $provider)->values()
-            : $all;
 
-        $counts = $all->groupBy(fn ($p) => $p->provider ?: 'other')->map->count();
+        // Default view shows only mobile proxies.
+        $scoped = $type === 'all' ? $all : $all->where('network_type', 'mobile')->values();
+        $proxies = $provider !== ''
+            ? $scoped->where('provider', $provider)->values()
+            : $scoped;
+
+        $counts = $scoped->groupBy(fn ($p) => $p->provider ?: 'other')->map->count();
 
         $settings = app(IntegrationSettingsService::class);
         $pc = $settings->getSettings('proxycheap');
@@ -36,7 +40,9 @@ class StaticProxyController extends Controller
         return view('static-proxies.index', [
             'proxies' => $proxies,
             'all' => $all,
+            'scoped' => $scoped,
             'provider' => $provider,
+            'type' => $type,
             'providers' => self::PROVIDERS,
             'counts' => $counts,
             'proxyCheapConfigured' => trim((string) ($pc['api_key'] ?? '')) !== '',
@@ -79,9 +85,13 @@ class StaticProxyController extends Controller
 
                 continue;
             }
-            // Import only ACTIVE proxies; the network type (mobile/residential) is
-            // recorded in the label so you can see exactly what each proxy is.
+            // Import only ACTIVE MOBILE proxies (this account uses mobile, not residential).
             if ($n['status'] !== '' && $n['status'] !== 'ACTIVE') {
+                $skipped++;
+
+                continue;
+            }
+            if (! str_contains($n['network_type'], 'MOBILE')) {
                 $skipped++;
 
                 continue;
@@ -91,6 +101,7 @@ class StaticProxyController extends Controller
             if ($existing) {
                 $existing->fill([
                     'provider' => 'proxycheap',
+                    'network_type' => 'mobile',
                     'location' => $n['location'],
                     'label' => $n['label'],
                     'username' => $n['username'],
@@ -105,6 +116,7 @@ class StaticProxyController extends Controller
             } else {
                 StaticProxy::create([
                     'provider' => 'proxycheap',
+                    'network_type' => 'mobile',
                     'label' => $n['label'],
                     'location' => $n['location'],
                     'host' => $n['host'],
@@ -118,10 +130,13 @@ class StaticProxyController extends Controller
             }
         }
 
+        // Keep ProxyCheap mobile-only: drop any previously imported non-mobile entries.
+        $pruned = StaticProxy::query()->where('provider', 'proxycheap')->where('network_type', '!=', 'mobile')->delete();
+
         $type = ($created + $updated) > 0 ? 'success' : 'warning';
 
         return redirect()->route('static-proxies.index', ['provider' => 'proxycheap'])
-            ->with($type, "ProxyCheap: {$created} added, {$updated} updated, {$skipped} skipped (inactive).");
+            ->with($type, "ProxyCheap mobile: {$created} added, {$updated} updated, {$skipped} skipped, {$pruned} non-mobile removed.");
     }
 
     public function store(Request $request): RedirectResponse
@@ -163,6 +178,7 @@ class StaticProxyController extends Controller
             StaticProxy::create([
                 'label' => $r['label'] ?? '',
                 'provider' => $data['provider'],
+                'network_type' => $data['provider'] === 'mobilehop' ? 'mobile' : '',
                 'location' => $r['location'] ?? '',
                 'host' => $r['host'],
                 'port' => $r['port'],
@@ -334,6 +350,7 @@ class StaticProxyController extends Controller
         $data = $request->validate([
             'label' => ['nullable', 'string', 'max:255'],
             'provider' => ['nullable', 'string', 'max:40'],
+            'network_type' => ['nullable', 'string', 'max:30'],
             'location' => ['nullable', 'string', 'max:255'],
             'host' => ['required', 'string', 'max:255'],
             'port' => ['required', 'integer', 'min:1', 'max:65535'],
@@ -345,6 +362,7 @@ class StaticProxyController extends Controller
 
         $data['label'] = $data['label'] ?? '';
         $data['provider'] = $data['provider'] ?? '';
+        $data['network_type'] = $data['network_type'] ?? '';
         $data['location'] = $data['location'] ?? '';
         $data['username'] = $data['username'] ?? '';
         $data['enabled'] = $request->boolean('enabled');

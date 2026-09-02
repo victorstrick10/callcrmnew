@@ -31,6 +31,13 @@ class StaticProxyService
             throw new RuntimeException('No enabled static proxies configured. Add at least one in Static Proxies.');
         }
 
+        // Mobile proxies are used for STATIC creation; fall back to any enabled
+        // only if no mobile proxy is available.
+        $mobile = $enabled->where('network_type', 'mobile');
+        if ($mobile->isNotEmpty()) {
+            $enabled = $mobile->values();
+        }
+
         $haystack = fn (StaticProxy $p) => mb_strtolower(trim(($p->location ?? '').' '.($p->label ?? '')));
 
         foreach ([$city, $region] as $needle) {
