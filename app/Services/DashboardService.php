@@ -66,21 +66,25 @@ class DashboardService
     }
 
     /**
-     * Scheduled-call counts for each of the next N days (starting today) in the
-     * display timezone, plus a total. Each entry carries a date label, weekday,
-     * ISO date (for linking), and count.
+     * Scheduled-call counts for each day of the CURRENT calendar week
+     * (Monday → Sunday) in the display timezone, plus a week total. Includes
+     * days that have already passed this week so the total reflects the whole
+     * week. Each entry carries a date label, weekday, ISO date, count, and
+     * today/tomorrow/past markers.
      *
-     * @return array{days:list<array{label:string,weekday:string,date:string,count:int,is_today:bool}>,total:int}
+     * @return array{days:list<array{label:string,weekday:string,date:string,count:int,is_today:bool,is_tomorrow:bool,is_past:bool}>,total:int}
      */
     public function callsByDay(int $days = 7): array
     {
         $tz = $this->tz();
+        $weekStart = Carbon::now($tz)->startOfWeek(Carbon::MONDAY);
         $today = Carbon::now($tz)->startOfDay();
+        $tomorrow = $today->copy()->addDay();
         $out = [];
         $total = 0;
 
-        for ($i = 0; $i < $days; $i++) {
-            $start = $today->copy()->addDays($i);
+        for ($i = 0; $i < 7; $i++) {
+            $start = $weekStart->copy()->addDays($i);
             $end = $start->copy()->addDay();
             $count = Appointment::query()
                 ->where('status', 'scheduled')
@@ -88,12 +92,16 @@ class DashboardService
                 ->count();
             $total += $count;
             $weekday = $start->format('D');
+            $isToday = $start->isSameDay($today);
+            $isTomorrow = $start->isSameDay($tomorrow);
             $out[] = [
                 'label' => $start->format('d.m'),
-                'weekday' => $i === 0 ? 'Today · '.$weekday : ($i === 1 ? 'Tomorrow · '.$weekday : $weekday),
+                'weekday' => $isToday ? 'Today · '.$weekday : ($isTomorrow ? 'Tomorrow · '.$weekday : $weekday),
                 'date' => $start->format('Y-m-d'),
                 'count' => $count,
-                'is_today' => $i === 0,
+                'is_today' => $isToday,
+                'is_tomorrow' => $isTomorrow,
+                'is_past' => $start->lt($today),
             ];
         }
 

@@ -33,9 +33,9 @@
 
 <div class="panel">
   <div class="panel-head">
-    <div><h2>Calls this week</h2><p>Scheduled calls per day · next 7 days · GMT+1</p></div>
+    <div><h2>Calls this week</h2><p>Scheduled calls per day · this week (Mon–Sun) · GMT+1</p></div>
     <div class="week-total-wrap">
-      <a class="week-total" href="{{ route('clients.index', ['schedule' => 'week']) }}" title="Open this week's calls">
+      <a class="week-total" href="{{ route('clients.index', ['from' => $weekCalls['days'][0]['date'] ?? '', 'to' => $weekCalls['days'][6]['date'] ?? '']) }}" title="Open this week's calls">
         <strong>{{ $weekCalls['total'] }}</strong>
         <span>calls this week</span>
       </a>
@@ -43,7 +43,7 @@
   </div>
   <div class="week-strip">
     @foreach ($weekCalls['days'] as $d)
-      <a class="week-day {{ $d['is_today'] ? 'is-today' : '' }} {{ $d['count'] > 0 ? 'has-calls' : '' }}"
+      <a class="week-day {{ $d['is_today'] ? 'is-today' : '' }} {{ $d['count'] > 0 ? 'has-calls' : '' }} {{ !empty($d['is_past']) ? 'is-past' : '' }}"
          href="{{ route('clients.index', ['from' => $d['date'], 'to' => $d['date']]) }}">
         <span class="week-day-name">{{ $d['weekday'] }}</span>
         <strong class="week-day-count">{{ $d['count'] }}</strong>
