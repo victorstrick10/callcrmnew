@@ -101,13 +101,15 @@ class ClientController extends Controller
             $out = fopen('php://output', 'w');
             // UTF-8 BOM so Excel opens special characters correctly
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['First Name', 'Last Name', 'Email']);
+            fputcsv($out, ['Name Surname', 'Email']);
 
             foreach ($contacts as $contact) {
+                $fullName = trim(((string) ($contact->first_name ?? '')).' '.((string) ($contact->last_name ?? '')));
+                $email = (string) ($contact->email ?? '');
+                $username = $email !== '' ? explode('@', $email, 2)[0] : '';
                 fputcsv($out, [
-                    (string) ($contact->first_name ?? ''),
-                    (string) ($contact->last_name ?? ''),
-                    (string) ($contact->email ?? ''),
+                    $fullName !== '' ? $fullName : $username,
+                    $username,
                 ]);
             }
 
