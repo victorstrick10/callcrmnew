@@ -33,8 +33,13 @@
 
 <div class="panel">
   <div class="panel-head">
-    <div><h2>Calls this week</h2><p>Scheduled calls per day · next 7 days · {{ $weekCalls['total'] }} total · GMT+1</p></div>
-    <a class="text-link" href="{{ route('clients.index', ['schedule' => 'week']) }}">Open week →</a>
+    <div><h2>Calls this week</h2><p>Scheduled calls per day · next 7 days · GMT+1</p></div>
+    <div class="week-total-wrap">
+      <a class="week-total" href="{{ route('clients.index', ['schedule' => 'week']) }}" title="Open this week's calls">
+        <strong>{{ $weekCalls['total'] }}</strong>
+        <span>calls this week</span>
+      </a>
+    </div>
   </div>
   <div class="week-strip">
     @foreach ($weekCalls['days'] as $d)

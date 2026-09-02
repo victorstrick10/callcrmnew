@@ -87,9 +87,10 @@ class DashboardService
                 ->whereBetween('start_time', [$start->copy()->utc(), $end->copy()->utc()])
                 ->count();
             $total += $count;
+            $weekday = $start->format('D');
             $out[] = [
                 'label' => $start->format('d.m'),
-                'weekday' => $i === 0 ? 'Today' : ($i === 1 ? 'Tomorrow' : $start->format('D')),
+                'weekday' => $i === 0 ? 'Today · '.$weekday : ($i === 1 ? 'Tomorrow · '.$weekday : $weekday),
                 'date' => $start->format('Y-m-d'),
                 'count' => $count,
                 'is_today' => $i === 0,
