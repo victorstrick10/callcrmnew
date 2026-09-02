@@ -53,76 +53,6 @@
   </div>
 </div>
 
-<div class="panel status-panel">
-  <div class="panel-head">
-    <div><h2>System status</h2><p>Live integration health &amp; automatic pipeline</p></div>
-    <div class="form-actions" style="margin:0">
-      <form method="post" action="{{ route('numbers.sync-all') }}" class="js-progress" style="margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Sync Multilogin profile numbers for all companies">↻ Sync numbers (all)</button></form>
-      <a class="btn btn-secondary" href="{{ route('settings.index', ['tab' => 'sync']) }}">Integrations</a>
-    </div>
-  </div>
-
-  <div class="status-strip">
-    <div class="status-pill state-{{ $sys['ipinfo']['state'] }}">
-      <span class="dot"></span>
-      <div>
-        <strong>IPinfo</strong>
-        <small>{{ $stateLabel[$sys['ipinfo']['state']] ?? 'Unknown' }} · geo enrichment</small>
-      </div>
-    </div>
-    <div class="status-pill state-{{ $sys['multilogin']['state'] }}">
-      <span class="dot"></span>
-      <div>
-        <strong>Multilogin</strong>
-        <small>{{ $stateLabel[$sys['multilogin']['state']] ?? 'Unknown' }} · profile creation</small>
-      </div>
-    </div>
-    <div class="status-pill state-{{ $sys['calendly']['configured'] ? 'up' : 'missing' }}">
-      <span class="dot"></span>
-      <div>
-        <strong>Calendly</strong>
-        <small>{{ $sys['calendly']['companies'] }}/{{ $sys['calendly']['companies_total'] }} companies connected</small>
-      </div>
-    </div>
-  </div>
-
-  <div class="sync-flow">
-    <span class="sync-step"><b>1</b> Calendly call arrives</span>
-    <i>→</i>
-    <span class="sync-step"><b>2</b> IPinfo reads lead geo from IP</span>
-    <i>→</i>
-    <span class="sync-step"><b>3</b> Build Multilogin browser profile</span>
-    <span class="sync-meta">Auto-sync {{ $sys['auto_sync'] }} · last run {{ $sys['last_sync_human'] }}</span>
-  </div>
-</div>
-
-<div class="panel">
-  <div class="panel-head">
-    <div><h2>Company health</h2><p>Live status per company — green = live, red = down/expired</p></div>
-    <form method="post" action="{{ route('system.check-all') }}" class="js-progress" style="margin:0">@csrf<button class="btn btn-primary" type="submit">🔌 Run all system checks</button></form>
-  </div>
-  <div class="card-grid">
-    @php $stLabel = ['up' => 'Live', 'down' => 'Down', 'unknown' => 'Not tested']; @endphp
-    @forelse ($companies as $co)
-      <div class="company-card">
-        <div class="company-card-head">
-          <div class="client-avatar">{{ mb_strtoupper(mb_substr($co->name, 0, 1)) }}</div>
-          <div><h3>{{ $co->name }}</h3><p>{{ $co->slug }}</p></div>
-        </div>
-        <div class="svc-status-row">
-          @foreach ([['lead', 'Lead API'], ['calendly', 'Calendly'], ['multilogin', 'Multilogin']] as [$svc, $label])
-            @php $st = $co->serviceState($svc); @endphp
-            <span class="svc-status state-{{ $st }}" title="{{ $co->serviceMessage($svc) ?: 'Not tested' }}"><span class="dot"></span>{{ $label }}: {{ $stLabel[$st] ?? '—' }}</span>
-          @endforeach
-        </div>
-        <a class="text-link" href="{{ route('companies.edit', $co) }}">Open company →</a>
-      </div>
-    @empty
-      <div class="empty-card">No companies yet.</div>
-    @endforelse
-  </div>
-</div>
-
 <div class="grid-2">
   @foreach ([['Today', $todayCalls], ['Tomorrow', $tomorrowCalls]] as [$label, $data])
     @php $copyText = $label." Calls\n".$data['count']." Calls\n".implode("\n", $data['times']); @endphp
@@ -200,6 +130,76 @@
         </tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<div class="panel status-panel">
+  <div class="panel-head">
+    <div><h2>System status</h2><p>Live integration health &amp; automatic pipeline</p></div>
+    <div class="form-actions" style="margin:0">
+      <form method="post" action="{{ route('numbers.sync-all') }}" class="js-progress" style="margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Sync Multilogin profile numbers for all companies">↻ Sync numbers (all)</button></form>
+      <a class="btn btn-secondary" href="{{ route('settings.index', ['tab' => 'sync']) }}">Integrations</a>
+    </div>
+  </div>
+
+  <div class="status-strip">
+    <div class="status-pill state-{{ $sys['ipinfo']['state'] }}">
+      <span class="dot"></span>
+      <div>
+        <strong>IPinfo</strong>
+        <small>{{ $stateLabel[$sys['ipinfo']['state']] ?? 'Unknown' }} · geo enrichment</small>
+      </div>
+    </div>
+    <div class="status-pill state-{{ $sys['multilogin']['state'] }}">
+      <span class="dot"></span>
+      <div>
+        <strong>Multilogin</strong>
+        <small>{{ $stateLabel[$sys['multilogin']['state']] ?? 'Unknown' }} · profile creation</small>
+      </div>
+    </div>
+    <div class="status-pill state-{{ $sys['calendly']['configured'] ? 'up' : 'missing' }}">
+      <span class="dot"></span>
+      <div>
+        <strong>Calendly</strong>
+        <small>{{ $sys['calendly']['companies'] }}/{{ $sys['calendly']['companies_total'] }} companies connected</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="sync-flow">
+    <span class="sync-step"><b>1</b> Calendly call arrives</span>
+    <i>→</i>
+    <span class="sync-step"><b>2</b> IPinfo reads lead geo from IP</span>
+    <i>→</i>
+    <span class="sync-step"><b>3</b> Build Multilogin browser profile</span>
+    <span class="sync-meta">Auto-sync {{ $sys['auto_sync'] }} · last run {{ $sys['last_sync_human'] }}</span>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <div><h2>Company health</h2><p>Live status per company — green = live, red = down/expired</p></div>
+    <form method="post" action="{{ route('system.check-all') }}" class="js-progress" style="margin:0">@csrf<button class="btn btn-primary" type="submit">🔌 Run all system checks</button></form>
+  </div>
+  <div class="card-grid">
+    @php $stLabel = ['up' => 'Live', 'down' => 'Down', 'unknown' => 'Not tested']; @endphp
+    @forelse ($companies as $co)
+      <div class="company-card">
+        <div class="company-card-head">
+          <div class="client-avatar">{{ mb_strtoupper(mb_substr($co->name, 0, 1)) }}</div>
+          <div><h3>{{ $co->name }}</h3><p>{{ $co->slug }}</p></div>
+        </div>
+        <div class="svc-status-row">
+          @foreach ([['lead', 'Lead API'], ['calendly', 'Calendly'], ['multilogin', 'Multilogin']] as [$svc, $label])
+            @php $st = $co->serviceState($svc); @endphp
+            <span class="svc-status state-{{ $st }}" title="{{ $co->serviceMessage($svc) ?: 'Not tested' }}"><span class="dot"></span>{{ $label }}: {{ $stLabel[$st] ?? '—' }}</span>
+          @endforeach
+        </div>
+        <a class="text-link" href="{{ route('companies.edit', $co) }}">Open company →</a>
+      </div>
+    @empty
+      <div class="empty-card">No companies yet.</div>
+    @endforelse
   </div>
 </div>
 
