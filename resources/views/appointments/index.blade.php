@@ -44,10 +44,12 @@
     </div>
     <div>
       <label>Search</label>
-      <input type="search" name="q" value="{{ $search ?? '' }}" placeholder="Client, email, event…">
+      <div class="search-group">
+        <input type="search" name="q" value="{{ $search ?? '' }}" placeholder="Client, email, event…">
+        <button class="btn btn-primary" type="submit">🔍 Search</button>
+      </div>
     </div>
     <div class="form-actions" style="margin:0">
-      <button class="btn btn-primary" type="submit">Filter</button>
       <a class="btn btn-secondary" href="{{ route('appointments.index') }}">Reset</a>
     </div>
   </div>

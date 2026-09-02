@@ -118,6 +118,13 @@ class ClientController extends Controller
 
     public function createMissingProfiles(Request $request, AppointmentService $service): RedirectResponse
     {
+        $role = (string) $request->input('role', 'both');
+        $onlyRoles = match ($role) {
+            'geo' => ['geo'],
+            'static' => ['static'],
+            default => null,
+        };
+
         $selected = array_values(array_filter(array_map('intval', (array) $request->input('appointment_ids', []))));
 
         $redirectQuery = array_filter([
@@ -171,7 +178,7 @@ class ClientController extends Controller
             }
 
             try {
-                $result = $service->createMissingProfiles($appointment);
+                $result = $service->createMissingProfiles($appointment, $onlyRoles);
                 $createdGeo += in_array('geo', $result['created'], true) ? 1 : 0;
                 $createdStatic += in_array('static', $result['created'], true) ? 1 : 0;
                 $skipped += count($result['skipped']);

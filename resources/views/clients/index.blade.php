@@ -66,8 +66,11 @@
       <input type="date" name="to" value="{{ $scheduleTo ?? '' }}">
     </div>
     <div>
-      <label>Search</label>
-      <input type="search" name="q" value="{{ $search ?? '' }}" placeholder="Name, email, referrer…">
+      <label>Search leads</label>
+      <div class="search-group">
+        <input type="search" name="q" value="{{ $search ?? '' }}" placeholder="Name, email, referrer…">
+        <button class="btn btn-primary" type="submit">🔍 Search</button>
+      </div>
     </div>
   </div>
   <div class="form-actions" style="margin-top:14px">
@@ -187,7 +190,11 @@
                 @csrf
                 @foreach ($baseQuery as $k => $v)<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endforeach
                 <input type="hidden" name="appointment_ids[]" value="{{ $c->display_appointment_id }}">
-                <button class="mini-btn" type="submit">＋ Profile</button>
+                <div class="mini-btn-group" role="group" aria-label="Create profile for this lead">
+                  <button class="mini-btn {{ $c->has_geo_profile ? 'done' : '' }}" name="role" value="geo" type="submit" title="Create GEO profile">GEO</button>
+                  <button class="mini-btn {{ $c->has_static_profile ? 'done' : '' }}" name="role" value="static" type="submit" title="Create STATIC profile">STATIC</button>
+                  <button class="mini-btn strong" name="role" value="both" type="submit" title="Create both missing profiles">Both</button>
+                </div>
               </form>
             @else
               <span class="muted">No call</span>

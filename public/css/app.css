@@ -203,3 +203,13 @@ select:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
 .modal-foot form{margin:0}
 @media(max-width:760px){.status-panel .status-strip{grid-template-columns:1fr}.builder-checks,.builder-roles{grid-template-columns:1fr}.sync-meta{margin-left:0}}
+
+/* Per-lead action button group + search group */
+.mini-btn-group{display:inline-flex;gap:5px;flex-wrap:wrap}
+.mini-btn-group .mini-btn{background:#eef0fb;color:#4f46e5;padding:6px 9px;font-size:11px}
+.mini-btn-group .mini-btn.strong{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff}
+.mini-btn-group .mini-btn.done{background:#e7f8f0;color:#137a50}
+.mini-btn-group .mini-btn:hover{filter:brightness(.97)}
+.search-group{display:flex;gap:8px;align-items:stretch}
+.search-group input{flex:1}
+.search-group .btn{white-space:nowrap}
