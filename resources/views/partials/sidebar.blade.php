@@ -14,8 +14,4 @@
     <a class="{{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">⚙ <span>Integrations</span></a>
     <a class="{{ request()->routeIs('logs.*') ? 'active' : '' }}" href="{{ route('logs.index') }}">≡ <span>Audit Logs</span></a>
   </nav>
-  <div class="sidebar-foot">
-    <div class="status-dot"></div>
-    <div><strong>Local mode</strong><span>127.0.0.1:8000</span></div>
-  </div>
 </aside>
