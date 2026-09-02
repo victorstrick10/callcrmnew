@@ -31,27 +31,28 @@
   @endif
 </div>
 
-<div class="panel">
-  <div class="panel-head">
-    <div><h2>Calls this week</h2><p>Scheduled calls per day · this week (Mon–Sun) · GMT+1</p></div>
-    <div class="week-total-wrap">
-      <a class="week-total" href="{{ route('clients.index', ['from' => $weekCalls['days'][0]['date'] ?? '', 'to' => $weekCalls['days'][6]['date'] ?? '']) }}" title="Open this week's calls">
-        <strong>{{ $weekCalls['total'] }}</strong>
-        <span>calls this week</span>
+@foreach ([['This week', $weekCalls, 'calls this week'], ['Next week', $nextWeekCalls, 'calls next week']] as [$wLabel, $wData, $wTotalLabel])
+  <div class="panel week-panel">
+    <div class="panel-head compact">
+      <div><h2>Calls {{ strtolower($wLabel) }}</h2><p>{{ $wLabel }} (Mon–Sun) · GMT+1</p></div>
+      <a class="week-total" href="{{ route('clients.index', ['from' => $wData['days'][0]['date'] ?? '', 'to' => $wData['days'][6]['date'] ?? '']) }}" title="Open {{ strtolower($wLabel) }}'s calls">
+        <strong>{{ $wData['total'] }}</strong>
+        <span>{{ $wTotalLabel }}</span>
       </a>
     </div>
+    <div class="week-strip">
+      @foreach ($wData['days'] as $d)
+        <a class="week-day {{ $d['is_today'] ? 'is-today' : '' }} {{ $d['count'] > 0 ? 'has-calls' : '' }} {{ !empty($d['is_past']) ? 'is-past' : '' }}"
+           href="{{ route('clients.index', ['from' => $d['date'], 'to' => $d['date']]) }}"
+           title="{{ $d['weekday'] }} {{ $d['label'] }} · {{ $d['count'] }} calls">
+          <span class="week-day-name">{{ $d['weekday'] }}</span>
+          <strong class="week-day-count">{{ $d['count'] }}</strong>
+          <span class="week-day-date">{{ $d['label'] }}</span>
+        </a>
+      @endforeach
+    </div>
   </div>
-  <div class="week-strip">
-    @foreach ($weekCalls['days'] as $d)
-      <a class="week-day {{ $d['is_today'] ? 'is-today' : '' }} {{ $d['count'] > 0 ? 'has-calls' : '' }} {{ !empty($d['is_past']) ? 'is-past' : '' }}"
-         href="{{ route('clients.index', ['from' => $d['date'], 'to' => $d['date']]) }}">
-        <span class="week-day-name">{{ $d['weekday'] }}</span>
-        <strong class="week-day-count">{{ $d['count'] }}</strong>
-        <span class="week-day-date">{{ $d['label'] }}</span>
-      </a>
-    @endforeach
-  </div>
-</div>
+@endforeach
 
 <div class="grid-2">
   @foreach ([['Today', $todayCalls], ['Tomorrow', $tomorrowCalls]] as [$label, $data])

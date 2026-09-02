@@ -72,12 +72,13 @@ class DashboardService
      * week. Each entry carries a date label, weekday, ISO date, count, and
      * today/tomorrow/past markers.
      *
+     * @param  int  $weekOffset  0 = this week, 1 = next week, etc.
      * @return array{days:list<array{label:string,weekday:string,date:string,count:int,is_today:bool,is_tomorrow:bool,is_past:bool}>,total:int}
      */
-    public function callsByDay(int $days = 7): array
+    public function callsByDay(int $weekOffset = 0): array
     {
         $tz = $this->tz();
-        $weekStart = Carbon::now($tz)->startOfWeek(Carbon::MONDAY);
+        $weekStart = Carbon::now($tz)->startOfWeek(Carbon::MONDAY)->addWeeks($weekOffset);
         $today = Carbon::now($tz)->startOfDay();
         $tomorrow = $today->copy()->addDay();
         $out = [];
