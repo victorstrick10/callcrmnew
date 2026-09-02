@@ -1597,7 +1597,7 @@ class MultiloginClient
             'audio_masking' => 'natural',
             'ports_masking' => 'mask',
             'proxy_masking' => 'custom',
-            'startup_behavior' => 'custom',
+            'startup_behavior' => 'recover',
         ];
 
         $payload = [
@@ -1666,7 +1666,7 @@ class MultiloginClient
             'audio_masking' => 'natural',
             'ports_masking' => 'mask',
             'proxy_masking' => 'custom',
-            'startup_behavior' => 'custom',
+            'startup_behavior' => 'recover',
         ];
 
         $proxyType = strtolower((string) ($proxy['type'] ?? $proxy['protocol'] ?? 'http'));
