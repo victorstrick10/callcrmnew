@@ -274,16 +274,18 @@ class AppointmentService
 
         $companyShort = $company->short_name
             ?: (explode(' ', trim((string) $company->name))[0] ?? '');
-        $scheduledAt = $appointment->localStart()?->format('d.m H:i') ?? '';
         $cc = $appointment->country_code ?: $appointment->country;
+        $nameCountry = $appointment->country ?: $appointment->country_code;
+        $nameRegion = $appointment->region;
+        $nameCity = $appointment->city;
 
         $log[] = 'Number allocated: '.$this->numbers->formatNumber($number).' (fresh check against Multilogin).';
 
         foreach ($want as $role) {
             $fullName = $appointment->contact->full_name;
             $name = $role === 'geo'
-                ? $this->names->geo($number, $fullName, $companyShort, $scheduledAt)
-                : $this->names->staticName($number, $fullName, $companyShort, $scheduledAt);
+                ? $this->names->geo($number, $fullName, $companyShort, $nameCountry, $nameRegion, $nameCity)
+                : $this->names->staticName($number, $fullName, $companyShort, $nameCountry, $nameRegion, $nameCity);
 
             $profile = BrowserProfile::create([
                 'appointment_id' => $appointment->id,

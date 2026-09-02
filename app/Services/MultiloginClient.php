@@ -1675,7 +1675,6 @@ class MultiloginClient
 
         self::_validate_profile_proxy_payload($payload);
         $profileId = $this->_post_create_auto($payload);
-        $this->importDefaultBookmarks($profileId);
 
         $this->audit->log(
             'Created GEO profile with Multilogin proxy',
@@ -1746,7 +1745,6 @@ class MultiloginClient
 
         self::_validate_profile_proxy_payload($payload);
         $profileId = $this->_post_create_auto($payload);
-        $this->importDefaultBookmarks($profileId);
 
         $this->audit->log(
             'Created STATIC profile with pool proxy',
