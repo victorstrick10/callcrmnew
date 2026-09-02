@@ -48,9 +48,12 @@ class ProxyCheapClient
         $response->throw();
         $data = $response->json();
 
-        // The endpoint returns a bare array; tolerate a wrapped {data:[...]} too.
-        if (isset($data['data']) && is_array($data['data'])) {
-            $data = $data['data'];
+        // The endpoint returns {"proxies":[...]}; tolerate a bare array or {data:[...]} too.
+        foreach (['proxies', 'data'] as $key) {
+            if (is_array($data) && isset($data[$key]) && is_array($data[$key])) {
+                $data = $data[$key];
+                break;
+            }
         }
 
         return is_array($data) ? array_values(array_filter($data, 'is_array')) : [];
@@ -83,6 +86,7 @@ class ProxyCheapClient
 
         $isp = trim((string) ($meta['ispName'] ?? ''));
         $country = trim((string) ($p['countryCode'] ?? ''));
+        $networkType = strtoupper((string) ($p['networkType'] ?? ''));
 
         return [
             'host' => $host,
@@ -91,8 +95,8 @@ class ProxyCheapClient
             'username' => (string) ($auth['username'] ?? ''),
             'password' => (string) ($auth['password'] ?? ''),
             'location' => trim($country.($isp ? ' · '.$isp : '')),
-            'label' => 'PC-'.(string) ($p['id'] ?? $host),
-            'network_type' => strtoupper((string) ($p['networkType'] ?? '')),
+            'label' => 'PC-'.(string) ($p['id'] ?? $host).($networkType ? ' '.$networkType : ''),
+            'network_type' => $networkType,
             'status' => strtoupper((string) ($p['status'] ?? '')),
         ];
     }

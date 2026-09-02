@@ -79,12 +79,8 @@ class StaticProxyController extends Controller
 
                 continue;
             }
-            // This account uses only MOBILE proxies from ProxyCheap.
-            if (! str_contains($n['network_type'], 'MOBILE')) {
-                $skipped++;
-
-                continue;
-            }
+            // Import only ACTIVE proxies; the network type (mobile/residential) is
+            // recorded in the label so you can see exactly what each proxy is.
             if ($n['status'] !== '' && $n['status'] !== 'ACTIVE') {
                 $skipped++;
 
@@ -125,7 +121,7 @@ class StaticProxyController extends Controller
         $type = ($created + $updated) > 0 ? 'success' : 'warning';
 
         return redirect()->route('static-proxies.index', ['provider' => 'proxycheap'])
-            ->with($type, "ProxyCheap mobile proxies: {$created} added, {$updated} updated, {$skipped} skipped (non-mobile/inactive).");
+            ->with($type, "ProxyCheap: {$created} added, {$updated} updated, {$skipped} skipped (inactive).");
     }
 
     public function store(Request $request): RedirectResponse
