@@ -412,28 +412,35 @@ class ClientController extends Controller
     }
 
     /**
+     * Resolve a schedule preset/custom range into UTC bounds.
+     *
+     * Day boundaries are computed in the operator display timezone (the same
+     * timezone call times are shown in) so "Today"/"Tomorrow" match what the
+     * operator sees on the clock, then converted to UTC for querying the
+     * UTC-stored start_time column.
+     *
      * @return array{0:?Carbon,1:?Carbon}
      */
     private function resolveScheduleRange(string $preset, string $from, string $to): array
     {
-        $tz = config('app.timezone');
+        $tz = config('app.display_timezone') ?: config('app.timezone');
 
         if ($preset === 'today') {
             $start = Carbon::now($tz)->startOfDay();
 
-            return [$start, $start->copy()->addDay()];
+            return [$start->copy()->utc(), $start->copy()->addDay()->utc()];
         }
 
         if ($preset === 'tomorrow') {
             $start = Carbon::now($tz)->addDay()->startOfDay();
 
-            return [$start, $start->copy()->addDay()];
+            return [$start->copy()->utc(), $start->copy()->addDay()->utc()];
         }
 
         if ($preset === 'week') {
             $start = Carbon::now($tz)->startOfDay();
 
-            return [$start, $start->copy()->addDays(7)];
+            return [$start->copy()->utc(), $start->copy()->addDays(7)->utc()];
         }
 
         $start = null;
@@ -461,6 +468,6 @@ class ClientController extends Controller
             $end = $start->copy()->addDay();
         }
 
-        return [$start, $end];
+        return [$start?->copy()->utc(), $end?->copy()->utc()];
     }
 }
