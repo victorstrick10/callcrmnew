@@ -121,6 +121,54 @@ class MultiloginClientTest extends TestCase
         ], $attempts[1]);
     }
 
+    public function test_geo_proxy_attempts_are_mobile_with_isp_then_graceful_fallback(): void
+    {
+        $attempts = MultiloginClient::geo_proxy_attempts(
+            ['country' => 'US', 'region' => 'New York', 'city' => 'New York'],
+            'Verizon',
+            'mobile'
+        );
+
+        // 1) mobile + full location + ISP
+        $this->assertSame(
+            ['country' => 'us', 'region' => 'new_york', 'city' => 'new_york', 'isp' => 'Verizon', 'connection' => 'mobile'],
+            $attempts[0]
+        );
+        // 2) mobile + full location (ISP dropped)
+        $this->assertSame(
+            ['country' => 'us', 'region' => 'new_york', 'city' => 'new_york', 'isp' => '', 'connection' => 'mobile'],
+            $attempts[1]
+        );
+        // 3) mobile + country + region (city dropped)
+        $this->assertSame(
+            ['country' => 'us', 'region' => 'new_york', 'city' => '', 'isp' => '', 'connection' => 'mobile'],
+            $attempts[2]
+        );
+        // 4) mobile + country only
+        $this->assertSame(
+            ['country' => 'us', 'region' => '', 'city' => '', 'isp' => '', 'connection' => 'mobile'],
+            $attempts[3]
+        );
+        // 5) safety net: country only, no connection type
+        $this->assertSame(
+            ['country' => 'us', 'region' => '', 'city' => '', 'isp' => '', 'connection' => ''],
+            $attempts[4]
+        );
+    }
+
+    public function test_geo_proxy_attempts_without_isp_skip_isp_attempt(): void
+    {
+        $attempts = MultiloginClient::geo_proxy_attempts(
+            ['country' => 'US', 'region' => 'New York', 'city' => 'New York'],
+            '',
+            'mobile'
+        );
+
+        // No ISP -> first attempt is the full-location mobile attempt (no ISP key value).
+        $this->assertSame('', $attempts[0]['isp']);
+        $this->assertSame('mobile', $attempts[0]['connection']);
+    }
+
     public function test_extract_profile_id_from_ids_array(): void
     {
         $id = MultiloginClient::_extract_profile_id([

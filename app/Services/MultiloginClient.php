@@ -1129,6 +1129,47 @@ class MultiloginClient
     }
 
     /**
+     * Ordered GEO proxy attempts honoring the requested behavior:
+     *   1) mobile · country + region + city + ISP
+     *   2) mobile · country + region + city   (ISP dropped when it can't match)
+     *   3) mobile · country + region          (ISP + city dropped)
+     *   4) mobile · country
+     *   5) country only, no connection type   (safety net so a proxy is always
+     *      generated even if the connectionType/isp fields are unsupported)
+     *
+     * The `connection` key defaults to the given type (mobile) on every real
+     * attempt; the final safety attempt omits it.
+     *
+     * @return list<array{country:string,region:string,city:string,isp:string,connection:string}>
+     */
+    public static function geo_proxy_attempts(array $location, string $isp = '', string $connection = 'mobile'): array
+    {
+        $base = self::proxy_location_attempts($location);
+        if (! $base) {
+            return [];
+        }
+
+        $isp = trim($isp);
+        $attempts = [];
+
+        // Finest attempt also carries the ISP (only when we have a full city + an ISP).
+        $full = $base[0];
+        if ($isp !== '' && $full['region'] !== '' && $full['city'] !== '') {
+            $attempts[] = $full + ['isp' => $isp, 'connection' => $connection];
+        }
+
+        foreach ($base as $b) {
+            $attempts[] = $b + ['isp' => '', 'connection' => $connection];
+        }
+
+        // Safety net: bare country with no connection type, so proxy generation
+        // never fully fails if `connectionType`/`isp` are rejected by the API.
+        $attempts[] = ['country' => $base[count($base) - 1]['country'], 'region' => '', 'city' => '', 'isp' => '', 'connection' => ''];
+
+        return $attempts;
+    }
+
+    /**
      * Find a proxy connection in all known Multilogin response shapes.
      */
     public static function _find_proxy_value($value)
@@ -1367,8 +1408,12 @@ class MultiloginClient
                     $errors[] = $inspectError;
                 }
 
-                $proxyIsp = self::_isp_name($exitInfo);
-                $score = self::_isp_similarity($clientIsp, $proxyIsp);
+                $verifiedIsp = self::_isp_name($exitInfo);
+                // When exit inspection can't resolve the proxy's ISP (e.g. CONNECT
+                // inspection failed), fall back to the client's ISP so the ISP field
+                // is populated instead of left blank.
+                $proxyIsp = $verifiedIsp !== '' ? $verifiedIsp : $clientIsp;
+                $score = self::_isp_similarity($clientIsp, $verifiedIsp);
                 $cityMatch = self::_normalize_location_text($exitInfo['city'] ?? '')
                     === self::_normalize_location_text((string) (self::attr($appointment, 'city') ?? ''));
                 $regionMatch = self::_normalize_location_text($exitInfo['region'] ?? '')
@@ -1557,7 +1602,16 @@ class MultiloginClient
         $headers = $this->headers();
         $headers['X-Strict-Mode'] = $strictMode ? 'true' : 'false';
 
-        $attempts = self::proxy_location_attempts($location);
+        // GEO profiles always use a mobile connection type unless a company
+        // explicitly overrides it. Match region/city/ISP with graceful fallback.
+        $connectionType = strtolower((string) ($this->cfg['multilogin_proxy_type'] ?? '')) ?: 'mobile';
+        if (! in_array($connectionType, ['mobile', 'residential', 'isp'], true)) {
+            $connectionType = 'mobile';
+        }
+
+        $clientIsp = (string) (self::attr($appointment, 'client_isp') ?: self::attr($appointment, 'client_org') ?: '');
+
+        $attempts = self::geo_proxy_attempts($location, $clientIsp, $connectionType);
         $errors = [];
 
         foreach ($attempts as $attempt) {
@@ -1568,11 +1622,17 @@ class MultiloginClient
                 'IPTTL' => $ipTtl,
                 'count' => 1,
             ];
+            if (($attempt['connection'] ?? '') !== '') {
+                $payload['connectionType'] = $attempt['connection'];
+            }
             if ($attempt['region'] !== '') {
                 $payload['region'] = $attempt['region'];
             }
             if ($attempt['city'] !== '') {
                 $payload['city'] = $attempt['city'];
+            }
+            if (($attempt['isp'] ?? '') !== '') {
+                $payload['isp'] = $attempt['isp'];
             }
 
             try {
@@ -1599,6 +1659,8 @@ class MultiloginClient
             $proxy['protocol'] = $protocol;
             $proxy['target_location'] = $location;
             $proxy['session_type'] = $sessionType;
+            $proxy['connection_type'] = $attempt['connection'] ?? '';
+            $proxy['requested_isp'] = $attempt['isp'] ?? '';
             $proxy['raw'] = $body;
 
             return $proxy;
