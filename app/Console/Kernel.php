@@ -16,6 +16,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('leads:sync')->everyFifteenMinutes();
         $schedule->command('ipinfo:enrich')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('profiles:sync-numbers')->everyFifteenMinutes()->withoutOverlapping();
+        $schedule->command('proxies:check')->everyFifteenMinutes()->withoutOverlapping();
+        $schedule->command('proxies:prepare-geo')->everyTenMinutes()->withoutOverlapping();
     }
 
     /**

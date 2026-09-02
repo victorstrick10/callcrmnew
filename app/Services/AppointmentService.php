@@ -145,6 +145,49 @@ class AppointmentService
         return ['enriched' => $enriched, 'failed' => $failed, 'remaining' => max(0, $remaining - $enriched - $failed)];
     }
 
+    /**
+     * Auto-generate a Multilogin GEO proxy for upcoming scheduled calls that
+     * have a known country but no ready proxy, so the GEO profile is ready to
+     * create. Bounded per run to control Multilogin proxy usage.
+     *
+     * @return array{ready:int,failed:int}
+     */
+    public function prepareGeoProxies(int $limit = 20): array
+    {
+        $tz = config('app.timezone');
+
+        $appointments = Appointment::query()
+            ->with('company')
+            ->where('status', 'scheduled')
+            ->where('start_time', '>=', \Illuminate\Support\Carbon::now($tz)->startOfDay())
+            ->where(function ($q) {
+                $q->where('country_code', '!=', '')->orWhere('country', '!=', '');
+            })
+            ->where(function ($q) {
+                $q->whereNull('proxy_status')->orWhere('proxy_status', '!=', 'ready');
+            })
+            ->orderBy('start_time')
+            ->limit($limit)
+            ->get();
+
+        $ready = 0;
+        $failed = 0;
+        foreach ($appointments as $appointment) {
+            if (! $this->multilogin->isConfiguredFor($appointment->company)) {
+                continue;
+            }
+            try {
+                $this->getProxy($appointment, 3, true);
+                $ready++;
+                usleep(200000);
+            } catch (Throwable $e) {
+                $failed++;
+            }
+        }
+
+        return ['ready' => $ready, 'failed' => $failed];
+    }
+
     public function getProxy(Appointment $appointment, int $candidateCount = 5, bool $autoSelect = true): array
     {
         try {

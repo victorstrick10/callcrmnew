@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\StaticProxy;
 use App\Services\IntegrationSettingsService;
 use App\Services\ProxyCheapClient;
+use App\Services\StaticProxyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -237,53 +238,7 @@ class StaticProxyController extends Controller
      */
     private function probe(StaticProxy $proxy): array
     {
-        $scheme = strtolower((string) $proxy->protocol) === 'socks5' ? 'socks5h' : 'http';
-        $auth = '';
-        if (trim((string) $proxy->username) !== '') {
-            $auth = rawurlencode($proxy->username).':'.rawurlencode((string) $proxy->password).'@';
-        }
-        $proxyUrl = "{$scheme}://{$auth}{$proxy->host}:{$proxy->port}";
-        $token = app(IntegrationSettingsService::class)->getSettings('ipinfo')['api_token'] ?? '';
-
-        try {
-            $response = Http::withOptions(['proxy' => $proxyUrl])
-                ->timeout(20)
-                ->get('https://ipinfo.io/json', array_filter(['token' => $token]));
-
-            if ($response->successful()) {
-                $j = is_array($response->json()) ? $response->json() : [];
-                $ip = (string) ($j['ip'] ?? '');
-                $org = (string) ($j['org'] ?? '');
-                $isp = trim(preg_replace('/^AS\d+\s+/i', '', $org) ?? $org);
-                $proxy->forceFill([
-                    'last_check_status' => 'up',
-                    'exit_ip' => $ip,
-                    'exit_country' => (string) ($j['country'] ?? ''),
-                    'exit_region' => (string) ($j['region'] ?? ''),
-                    'exit_city' => (string) ($j['city'] ?? ''),
-                    'exit_isp' => $isp,
-                    'last_checked_at' => now(),
-                ])->save();
-
-                return ['ok' => true, 'ip' => $ip];
-            }
-
-            $proxy->forceFill([
-                'last_check_status' => 'down',
-                'exit_ip' => '',
-                'last_checked_at' => now(),
-            ])->save();
-
-            return ['ok' => false, 'error' => 'HTTP '.$response->status()];
-        } catch (Throwable $e) {
-            $proxy->forceFill([
-                'last_check_status' => 'down',
-                'exit_ip' => '',
-                'last_checked_at' => now(),
-            ])->save();
-
-            return ['ok' => false, 'error' => $e->getMessage()];
-        }
+        return app(StaticProxyService::class)->check($proxy);
     }
 
     public function update(Request $request, StaticProxy $staticProxy): RedirectResponse
