@@ -180,8 +180,17 @@
           </td>
           <td>
             @if ($c->our_proxy_ready)
-              <span class="svc-status state-up"><span class="dot"></span>Ready</span>
-              <small class="muted">{{ ucfirst($c->our_proxy_provider ?: 'pool') }} · {{ $c->our_proxy_location ?: '—' }} ({{ str_replace('_', '+', $c->our_proxy_level) }})</small>
+              <span class="svc-status state-up"><span class="dot"></span>{{ ucfirst($c->our_proxy_provider ?: 'pool') }} · {{ str_replace('_', '+', $c->our_proxy_level) }}</span>
+              @if ($c->our_proxy_checked)
+                <div class="geo-lines">
+                  <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->our_proxy_country) }} {{ $c->our_proxy_country ?: '—' }}</span>
+                  <span><b>Region</b>{{ $c->our_proxy_region ?: '—' }}</span>
+                  <span><b>City</b>{{ $c->our_proxy_city ?: '—' }}</span>
+                  <span><b>ISP</b>{{ $c->our_proxy_isp ?: '—' }}</span>
+                </div>
+              @else
+                <small class="muted">{{ $c->our_proxy_location ?: '' }} · run “Check all live” to verify geo</small>
+              @endif
             @else
               <span class="svc-status state-unknown"><span class="dot"></span>No match</span>
             @endif
@@ -189,7 +198,16 @@
           <td>
             @if ($c->ml_proxy_ready)
               <span class="svc-status state-up"><span class="dot"></span>Ready</span>
-              <small class="muted">{{ \App\Support\CountryFlag::emoji($c->ml_proxy_country) }} {{ collect([$c->ml_proxy_country, $c->ml_proxy_region, $c->ml_proxy_city])->filter()->implode(' ') }}</small>
+              <div class="geo-lines">
+                <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->ml_proxy_country) }} {{ $c->ml_proxy_country ?: '—' }}</span>
+                <span><b>Region</b>{{ $c->ml_proxy_region ?: '—' }}</span>
+                <span><b>City</b>{{ $c->ml_proxy_city ?: '—' }}</span>
+                <span><b>ISP</b>{{ $c->ml_proxy_isp ?: '—' }}</span>
+              </div>
+              <form method="post" action="{{ route('appointments.proxy.get', $c->display_appointment_id) }}" style="margin:6px 0 0">
+                @csrf
+                <button class="mini-btn ghost" type="submit" title="Rotate / get a new Multilogin proxy IP for this lead">↻ Refresh IP</button>
+              </form>
             @elseif ($c->display_appointment_id)
               <form method="post" action="{{ route('appointments.proxy.get', $c->display_appointment_id) }}" style="margin:0">
                 @csrf

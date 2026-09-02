@@ -251,7 +251,16 @@ class ClientController extends Controller
             $score = $rank[$level] + ($p->network_type === 'mobile' ? 0.5 : 0);
             if ($score > $bestScore) {
                 $bestScore = $score;
-                $best = ['provider' => (string) $p->provider, 'location' => (string) $p->location, 'level' => $level];
+                $best = [
+                    'provider' => (string) $p->provider,
+                    'location' => (string) $p->location,
+                    'level' => $level,
+                    'exit_country' => (string) $p->exit_country,
+                    'exit_region' => (string) $p->exit_region,
+                    'exit_city' => (string) $p->exit_city,
+                    'exit_isp' => (string) $p->exit_isp,
+                    'checked' => $p->last_check_status === 'up',
+                ];
             }
         }
 
@@ -376,12 +385,18 @@ class ClientController extends Controller
             $contact->our_proxy_provider = $sm['provider'] ?? '';
             $contact->our_proxy_location = $sm['location'] ?? '';
             $contact->our_proxy_level = $sm['level'] ?? '';
+            $contact->our_proxy_checked = (bool) ($sm['checked'] ?? false);
+            $contact->our_proxy_country = $sm['exit_country'] ?? '';
+            $contact->our_proxy_region = $sm['exit_region'] ?? '';
+            $contact->our_proxy_city = $sm['exit_city'] ?? '';
+            $contact->our_proxy_isp = $sm['exit_isp'] ?? '';
 
             // Multilogin (GEO) proxy readiness from the display appointment.
             $contact->ml_proxy_ready = (bool) ($display && $display->proxy_status === 'ready');
             $contact->ml_proxy_country = trim((string) ($display?->proxy_actual_country ?: $display?->country_code ?: $display?->country ?: ''));
             $contact->ml_proxy_region = trim((string) ($display?->proxy_actual_region ?: $display?->region ?: ''));
             $contact->ml_proxy_city = trim((string) ($display?->proxy_actual_city ?: $display?->city ?: ''));
+            $contact->ml_proxy_isp = trim((string) ($display?->proxy_isp ?: ''));
             $contact->ml_proxy_level = trim((string) ($display?->proxy_match_level ?? ''));
 
             return $contact;

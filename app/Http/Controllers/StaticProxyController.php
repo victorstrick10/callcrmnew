@@ -243,17 +243,25 @@ class StaticProxyController extends Controller
             $auth = rawurlencode($proxy->username).':'.rawurlencode((string) $proxy->password).'@';
         }
         $proxyUrl = "{$scheme}://{$auth}{$proxy->host}:{$proxy->port}";
+        $token = app(IntegrationSettingsService::class)->getSettings('ipinfo')['api_token'] ?? '';
 
         try {
             $response = Http::withOptions(['proxy' => $proxyUrl])
                 ->timeout(20)
-                ->get('https://ipinfo.io/json');
+                ->get('https://ipinfo.io/json', array_filter(['token' => $token]));
 
             if ($response->successful()) {
-                $ip = (string) ($response->json()['ip'] ?? '');
+                $j = is_array($response->json()) ? $response->json() : [];
+                $ip = (string) ($j['ip'] ?? '');
+                $org = (string) ($j['org'] ?? '');
+                $isp = trim(preg_replace('/^AS\d+\s+/i', '', $org) ?? $org);
                 $proxy->forceFill([
                     'last_check_status' => 'up',
                     'exit_ip' => $ip,
+                    'exit_country' => (string) ($j['country'] ?? ''),
+                    'exit_region' => (string) ($j['region'] ?? ''),
+                    'exit_city' => (string) ($j['city'] ?? ''),
+                    'exit_isp' => $isp,
                     'last_checked_at' => now(),
                 ])->save();
 
