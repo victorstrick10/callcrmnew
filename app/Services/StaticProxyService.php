@@ -108,6 +108,35 @@ class StaticProxyService
     }
 
     /**
+     * Pick a proxy from a single provider only (e.g. MobileHop). Matches the
+     * client's country/region/city; if none match, returns a random enabled
+     * proxy from that provider. ISP is intentionally ignored here.
+     */
+    public function pickForProvider(string $provider, ?string $city, ?string $region, ?string $country): StaticProxy
+    {
+        $pool = StaticProxy::query()->enabled()->where('provider', $provider)->get();
+        if ($pool->isEmpty()) {
+            throw new RuntimeException(
+                'No enabled '.$provider.' proxies configured. Add at least one MobileHop proxy in Static Proxies.'
+            );
+        }
+
+        $rank = ['city_region' => 5, 'city' => 4, 'region' => 3, 'country' => 2];
+        $best = null;
+        $bestScore = 0;
+        foreach ($pool as $p) {
+            $level = $this->matchLevel($p, $city, $region, $country, '');
+            if (isset($rank[$level]) && $rank[$level] > $bestScore) {
+                $bestScore = $rank[$level];
+                $best = $p;
+            }
+        }
+
+        // No country/region/city match — use a random proxy from this provider.
+        return $best ?: $pool->random();
+    }
+
+    /**
      * Describe how well a proxy matches a client, using the proxy's ipinfo-verified
      * exit geo (exact 2-letter country code, real region/city, fuzzy ISP):
      * city_region | city | region | isp | country | random (no match).

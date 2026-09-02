@@ -233,8 +233,9 @@
                 @foreach ($baseQuery as $k => $v)<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endforeach
                 <input type="hidden" name="appointment_ids[]" value="{{ $c->display_appointment_id }}">
                 <div class="mini-btn-group" role="group" aria-label="Create profile for this lead">
-                  <button class="mini-btn {{ $c->has_geo_profile ? 'done' : '' }}" name="role" value="geo" type="submit" title="Create GEO profile">GEO</button>
-                  <button class="mini-btn {{ $c->has_static_profile ? 'done' : '' }}" name="role" value="static" type="submit" title="Create STATIC profile">STATIC</button>
+                  <button class="mini-btn {{ $c->has_geo_profile ? 'done' : '' }}" name="role" value="geo" type="submit" title="Create GEO profile (mobile Multilogin proxy, matches region/city/ISP)">GEO</button>
+                  <button class="mini-btn {{ $c->has_static_profile ? 'done' : '' }}" name="role" value="static" type="submit" title="Create STATIC profile (best matching pool proxy)">STATIC</button>
+                  <button class="mini-btn" name="role" value="static_mhop" type="submit" title="Create STATIC profile using a MobileHop proxy only (match country/region/city, else random MobileHop)">STATIC-MHop</button>
                   <button class="mini-btn strong" name="role" value="both" type="submit" title="Create both missing profiles">Both</button>
                 </div>
               </form>

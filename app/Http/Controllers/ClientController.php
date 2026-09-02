@@ -135,9 +135,11 @@ class ClientController extends Controller
     public function createMissingProfiles(Request $request, AppointmentService $service): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $role = (string) $request->input('role', 'both');
+        // 'static_mhop' = STATIC profile using a MobileHop proxy only.
+        $staticProvider = $role === 'static_mhop' ? 'mobilehop' : null;
         $onlyRoles = match ($role) {
             'geo' => ['geo'],
-            'static' => ['static'],
+            'static', 'static_mhop' => ['static'],
             default => null,
         };
 
@@ -179,7 +181,7 @@ class ClientController extends Controller
             $who = $appointment->contact?->full_name ?: "Appointment #{$appointmentId}";
 
             try {
-                $result = $service->createMissingProfiles($appointment, $onlyRoles);
+                $result = $service->createMissingProfiles($appointment, $onlyRoles, $staticProvider);
                 $createdGeo += in_array('geo', $result['created'], true) ? 1 : 0;
                 $createdStatic += in_array('static', $result['created'], true) ? 1 : 0;
                 $skipped += count($result['skipped']);

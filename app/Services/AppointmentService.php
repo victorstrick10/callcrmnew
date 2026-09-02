@@ -218,9 +218,11 @@ class AppointmentService
     /**
      * Create missing GEO/STATIC Multilogin profiles for an appointment.
      *
+     * @param  string|null  $staticProvider  When set (e.g. 'mobilehop'), the STATIC
+     *                                        profile uses a proxy from that provider only.
      * @return array{created: list<string>, skipped: list<string>, failed: list<array{role: string, error: string}>}
      */
-    public function createMissingProfiles(Appointment $appointment, ?array $onlyRoles = null): array
+    public function createMissingProfiles(Appointment $appointment, ?array $onlyRoles = null, ?string $staticProvider = null): array
     {
         $this->requireCompanyMultilogin($appointment);
         $appointment->loadMissing(['contact', 'profiles', 'company']);
@@ -343,13 +345,23 @@ class AppointmentService
                 if ($role === 'geo') {
                     $mlId = $this->multiloginFor($appointment)->create_geo_profile($name, $appointment);
                 } else {
-                    $staticProxy = $this->staticProxies->pickForLocation(
-                        $appointment->city,
-                        $appointment->region,
-                        $cc,
-                        $appointment->client_isp
-                    );
-                    $matchLevel = $this->staticProxies->matchLevel($staticProxy, $appointment->city, $appointment->region, $cc, $appointment->client_isp);
+                    if ($staticProvider) {
+                        $staticProxy = $this->staticProxies->pickForProvider(
+                            $staticProvider,
+                            $appointment->city,
+                            $appointment->region,
+                            $cc
+                        );
+                        $matchLevel = $this->staticProxies->matchLevel($staticProxy, $appointment->city, $appointment->region, $cc, '');
+                    } else {
+                        $staticProxy = $this->staticProxies->pickForLocation(
+                            $appointment->city,
+                            $appointment->region,
+                            $cc,
+                            $appointment->client_isp
+                        );
+                        $matchLevel = $this->staticProxies->matchLevel($staticProxy, $appointment->city, $appointment->region, $cc, $appointment->client_isp);
+                    }
                     $providerLabel = $this->providerLabel($staticProxy->provider);
                     $profile->proxy_label = $staticProxy->label ?: $staticProxy->host;
                     $log[] = $matchLevel === 'random'
