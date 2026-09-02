@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\StaticProxy;
+use App\Services\IntegrationSettingsService;
+use App\Services\ProxyCheapClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -28,13 +30,102 @@ class StaticProxyController extends Controller
 
         $counts = $all->groupBy(fn ($p) => $p->provider ?: 'other')->map->count();
 
+        $settings = app(IntegrationSettingsService::class);
+        $pc = $settings->getSettings('proxycheap');
+
         return view('static-proxies.index', [
             'proxies' => $proxies,
             'all' => $all,
             'provider' => $provider,
             'providers' => self::PROVIDERS,
             'counts' => $counts,
+            'proxyCheapConfigured' => trim((string) ($pc['api_key'] ?? '')) !== '',
+            'proxyCheapMasked' => $settings->masked($pc['api_key'] ?? ''),
         ]);
+    }
+
+    /**
+     * Pull the account's active MOBILE proxies from the ProxyCheap API into the
+     * ProxyCheap tab. (This account uses only mobile proxies, not residential.)
+     */
+    public function syncProxyCheap(Request $request, ProxyCheapClient $client, IntegrationSettingsService $settings): RedirectResponse
+    {
+        $save = [];
+        if ($request->filled('api_key')) {
+            $save['api_key'] = trim((string) $request->input('api_key'));
+        }
+        if ($request->filled('api_secret')) {
+            $save['api_secret'] = trim((string) $request->input('api_secret'));
+        }
+        if ($save) {
+            $settings->saveSettings('proxycheap', $save, true);
+        }
+
+        try {
+            $proxies = $client->listProxies();
+        } catch (Throwable $e) {
+            return redirect()->route('static-proxies.index', ['provider' => 'proxycheap'])
+                ->with('danger', 'ProxyCheap sync failed: '.$e->getMessage());
+        }
+
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($proxies as $raw) {
+            $n = $client->normalize($raw);
+            if (! $n) {
+                $skipped++;
+
+                continue;
+            }
+            // This account uses only MOBILE proxies from ProxyCheap.
+            if (! str_contains($n['network_type'], 'MOBILE')) {
+                $skipped++;
+
+                continue;
+            }
+            if ($n['status'] !== '' && $n['status'] !== 'ACTIVE') {
+                $skipped++;
+
+                continue;
+            }
+
+            $existing = StaticProxy::query()->where('host', $n['host'])->where('port', $n['port'])->first();
+            if ($existing) {
+                $existing->fill([
+                    'provider' => 'proxycheap',
+                    'location' => $n['location'],
+                    'label' => $n['label'],
+                    'username' => $n['username'],
+                    'protocol' => $n['protocol'],
+                    'enabled' => true,
+                ]);
+                if ($n['password'] !== '') {
+                    $existing->password = $n['password'];
+                }
+                $existing->save();
+                $updated++;
+            } else {
+                StaticProxy::create([
+                    'provider' => 'proxycheap',
+                    'label' => $n['label'],
+                    'location' => $n['location'],
+                    'host' => $n['host'],
+                    'port' => $n['port'],
+                    'username' => $n['username'],
+                    'password' => $n['password'],
+                    'protocol' => $n['protocol'],
+                    'enabled' => true,
+                ]);
+                $created++;
+            }
+        }
+
+        $type = ($created + $updated) > 0 ? 'success' : 'warning';
+
+        return redirect()->route('static-proxies.index', ['provider' => 'proxycheap'])
+            ->with($type, "ProxyCheap mobile proxies: {$created} added, {$updated} updated, {$skipped} skipped (non-mobile/inactive).");
     }
 
     public function store(Request $request): RedirectResponse

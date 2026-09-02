@@ -283,7 +283,11 @@ class AppointmentService
                 if ($role === 'geo') {
                     $mlId = $this->multiloginFor($appointment)->create_geo_profile($name, $appointment);
                 } else {
-                    $staticProxy = $this->staticProxies->randomEnabled();
+                    $staticProxy = $this->staticProxies->pickForLocation(
+                        $appointment->city,
+                        $appointment->region,
+                        $appointment->country_code ?: $appointment->country
+                    );
                     $profile->proxy_label = $staticProxy->label ?: $staticProxy->host;
                     $mlId = $this->multiloginFor($appointment)->create_static_profile(
                         $name,
@@ -351,7 +355,11 @@ class AppointmentService
                 ? $this->multiloginFor($appointment)->create_geo_profile($profile->profile_name, $appointment)
                 : $this->multiloginFor($appointment)->create_static_profile(
                     $profile->profile_name,
-                    $this->staticProxies->randomEnabled()->toMultiloginProxy()
+                    $this->staticProxies->pickForLocation(
+                        $appointment->city,
+                        $appointment->region,
+                        $appointment->country_code ?: $appointment->country
+                    )->toMultiloginProxy()
                 );
 
             $profile->multilogin_profile_id = $mlId;

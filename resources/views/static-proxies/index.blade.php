@@ -25,6 +25,23 @@
   <div class="stat-card"><span>Disabled</span><strong>{{ $proxies->where('enabled', false)->count() }}</strong><small>Excluded from pool</small></div>
 </div>
 
+<div class="panel">
+  <div class="panel-head">
+    <div><h2>ProxyCheap API sync</h2><p>Pull active <strong>mobile</strong> proxies directly from your ProxyCheap account (residential skipped)</p></div>
+    <span class="status-light state-{{ $proxyCheapConfigured ? 'up' : 'unknown' }}"><span class="dot"></span>{{ $proxyCheapConfigured ? 'Connected' : 'Not configured' }}</span>
+  </div>
+  <form method="post" action="{{ route('static-proxies.proxycheap.sync') }}">
+    @csrf
+    <div class="form-grid">
+      <div><label>API key <span>{{ $proxyCheapMasked }}</span></label><input type="password" name="api_key" placeholder="Leave blank to keep saved key"></div>
+      <div><label>API secret</label><input type="password" name="api_secret" placeholder="Leave blank to keep saved secret"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">⟳ Save &amp; sync ProxyCheap (mobile)</button>
+    </div>
+  </form>
+</div>
+
 <div class="grid-2">
   <div class="panel">
     <div class="panel-head"><div><h2>Bulk import — MobileHop</h2><p>Paste the MobileHop proxy list (Name / Location / IP:port / Username / Password). ProxyCheap uses its API — coming next.</p></div></div>
