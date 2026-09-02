@@ -154,7 +154,7 @@
 
 <div class="grid-2">
   <div class="panel">
-    <div class="panel-head"><div><h2>Pending browser profiles</h2><p>Today · {{ \Illuminate\Support\Carbon::now(config('app.timezone'))->format('D d.m.Y') }} · both companies</p></div><a class="text-link" href="{{ route('clients.index', ['schedule' => 'today']) }}">Today’s clients</a></div>
+    <div class="panel-head"><div><h2>Pending browser profiles</h2><p>Today · {{ \Illuminate\Support\Carbon::now($dispTz)->format('D d.m.Y') }} · both companies</p></div><a class="text-link" href="{{ route('clients.index', ['schedule' => 'today']) }}">Today’s clients</a></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Client</th><th>Call</th><th>Location</th><th>Missing</th><th></th></tr></thead>
@@ -182,7 +182,7 @@
   </div>
 
   <div class="panel">
-    <div class="panel-head"><div><h2>Upcoming calls</h2><p>Tomorrow · {{ \Illuminate\Support\Carbon::now(config('app.timezone'))->addDay()->format('D d.m.Y') }} · both companies</p></div><a class="text-link" href="{{ route('clients.index', ['schedule' => 'tomorrow']) }}">Tomorrow’s clients</a></div>
+    <div class="panel-head"><div><h2>Upcoming calls</h2><p>Tomorrow · {{ \Illuminate\Support\Carbon::now($dispTz)->addDay()->format('D d.m.Y') }} · both companies</p></div><a class="text-link" href="{{ route('clients.index', ['schedule' => 'tomorrow']) }}">Tomorrow’s clients</a></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Client</th><th>Call</th><th>Location</th><th>Status</th></tr></thead>
