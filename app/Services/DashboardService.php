@@ -48,6 +48,57 @@ class DashboardService
         ];
     }
 
+    /**
+     * Number of scheduled calls that entered the CRM since the operator's last
+     * visit. When there is no baseline yet (first visit), returns 0 so the whole
+     * backlog isn't reported as "new".
+     */
+    public function newScheduledCalls(?Carbon $since): int
+    {
+        if ($since === null) {
+            return 0;
+        }
+
+        return Appointment::query()
+            ->where('status', 'scheduled')
+            ->where('created_at', '>', $since)
+            ->count();
+    }
+
+    /**
+     * Scheduled-call counts for each of the next N days (starting today) in the
+     * display timezone, plus a total. Each entry carries a date label, weekday,
+     * ISO date (for linking), and count.
+     *
+     * @return array{days:list<array{label:string,weekday:string,date:string,count:int,is_today:bool}>,total:int}
+     */
+    public function callsByDay(int $days = 7): array
+    {
+        $tz = $this->tz();
+        $today = Carbon::now($tz)->startOfDay();
+        $out = [];
+        $total = 0;
+
+        for ($i = 0; $i < $days; $i++) {
+            $start = $today->copy()->addDays($i);
+            $end = $start->copy()->addDay();
+            $count = Appointment::query()
+                ->where('status', 'scheduled')
+                ->whereBetween('start_time', [$start->copy()->utc(), $end->copy()->utc()])
+                ->count();
+            $total += $count;
+            $out[] = [
+                'label' => $start->format('d.m'),
+                'weekday' => $i === 0 ? 'Today' : ($i === 1 ? 'Tomorrow' : $start->format('D')),
+                'date' => $start->format('Y-m-d'),
+                'count' => $count,
+                'is_today' => $i === 0,
+            ];
+        }
+
+        return ['days' => $out, 'total' => $total];
+    }
+
     public function stats(): array
     {
         $tz = $this->tz();

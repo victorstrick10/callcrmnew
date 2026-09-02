@@ -275,3 +275,26 @@ a.stat-card:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(30,41,5
 .times-list{display:flex;flex-wrap:wrap;gap:8px}
 .time-chip{background:#eef1f6;border:1px solid var(--line);border-radius:9px;padding:7px 12px;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
 .copy-btn{white-space:nowrap}
+
+/* "New calls since last visit" banner */
+.notify-row{display:flex;align-items:center;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;margin-bottom:22px;box-shadow:var(--shadow)}
+.notify-row.has-new{border-color:rgba(91,92,240,.45);background:linear-gradient(90deg,rgba(91,92,240,.10),rgba(124,58,237,.04))}
+.notify-icon{font-size:24px;width:46px;height:46px;display:grid;place-items:center;background:#eef1f6;border-radius:14px;flex:0 0 auto}
+.notify-row.has-new .notify-icon{background:rgba(91,92,240,.16)}
+.notify-body{flex:1 1 auto;min-width:0}
+.notify-body strong{display:block;font-size:16px}
+.notify-body small{display:block;color:var(--muted);margin-top:2px}
+.notify-row .btn{flex:0 0 auto}
+
+/* Calls-by-day strip */
+.week-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.week-day{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 6px;border:1px solid var(--line);border-radius:14px;text-decoration:none;color:inherit;background:#fafbff;transition:transform .12s,box-shadow .12s,border-color .12s}
+.week-day:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(30,41,59,.12)}
+.week-day-name{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.week-day-count{font-size:26px;font-variant-numeric:tabular-nums;line-height:1.1}
+.week-day-date{font-size:11px;color:var(--muted)}
+.week-day.has-calls .week-day-count{color:var(--primary)}
+.week-day.is-today{border-color:rgba(91,92,240,.5);background:rgba(91,92,240,.06)}
+.week-day.is-today .week-day-name{color:var(--primary)}
+@media(max-width:900px){.week-strip{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:560px){.week-strip{grid-template-columns:repeat(2,1fr)}.notify-row{flex-wrap:wrap}}

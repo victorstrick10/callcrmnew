@@ -8,7 +8,45 @@
 @php
   $sys = $systemStatus;
   $stateLabel = ['up' => 'Online', 'down' => 'Error', 'unknown' => 'Untested', 'missing' => 'Not set'];
+  $dispTz = config('app.display_timezone') ?: config('app.timezone');
+  $seenLabel = ($newCallsSince ?? null) ? $newCallsSince->copy()->setTimezone($dispTz)->format('D d.m.Y H:i') : null;
 @endphp
+
+<div class="notify-row {{ ($newCalls ?? 0) > 0 ? 'has-new' : '' }}">
+  <div class="notify-icon">🔔</div>
+  <div class="notify-body">
+    @if (($newCalls ?? 0) > 0)
+      <strong>{{ $newCalls }} new call{{ $newCalls === 1 ? '' : 's' }} scheduled</strong>
+      <small>since your last visit{{ $seenLabel ? ' · '.$seenLabel.' (GMT+1)' : '' }}</small>
+    @elseif (!empty($newCallsFirstVisit))
+      <strong>Now tracking new calls</strong>
+      <small>New bookings since your last visit will show up here next time you open the CRM.</small>
+    @else
+      <strong>No new calls since your last visit</strong>
+      <small>{{ $seenLabel ? 'Last checked '.$seenLabel.' (GMT+1)' : "You're all caught up." }}</small>
+    @endif
+  </div>
+  @if (($newCalls ?? 0) > 0)
+    <a class="btn btn-primary" href="{{ route('clients.index', ['schedule' => 'all', 'sort' => 'created', 'dir' => 'desc']) }}">View new leads →</a>
+  @endif
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <div><h2>Calls this week</h2><p>Scheduled calls per day · next 7 days · {{ $weekCalls['total'] }} total · GMT+1</p></div>
+    <a class="text-link" href="{{ route('clients.index', ['schedule' => 'week']) }}">Open week →</a>
+  </div>
+  <div class="week-strip">
+    @foreach ($weekCalls['days'] as $d)
+      <a class="week-day {{ $d['is_today'] ? 'is-today' : '' }} {{ $d['count'] > 0 ? 'has-calls' : '' }}"
+         href="{{ route('clients.index', ['from' => $d['date'], 'to' => $d['date']]) }}">
+        <span class="week-day-name">{{ $d['weekday'] }}</span>
+        <strong class="week-day-count">{{ $d['count'] }}</strong>
+        <span class="week-day-date">{{ $d['label'] }}</span>
+      </a>
+    @endforeach
+  </div>
+</div>
 
 <div class="panel status-panel">
   <div class="panel-head">
