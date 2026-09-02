@@ -10,8 +10,10 @@ use Illuminate\Http\Request;
 
 class CalendlyWebhookService
 {
-    public function __construct(private AuditService $audit)
-    {
+    public function __construct(
+        private AuditService $audit,
+        private AppointmentService $appointments,
+    ) {
     }
 
     public function handle(array $payload, Request $request, ?Company $company = null): array
@@ -92,6 +94,10 @@ class CalendlyWebhookService
                 'Calendly appointment received',
                 "{$contact->full_name} / Appointment #{$existing->id} ({$company->slug})"
             );
+
+            // A call just arrived from Calendly — read the lead's geo from its IP
+            // via the IPinfo token automatically, before any profile work.
+            $this->appointments->autoEnrich($existing);
         }
 
         return ['ok' => true, 'appointment_id' => $existing->id, 'http' => 200];

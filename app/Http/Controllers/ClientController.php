@@ -20,9 +20,11 @@ class ClientController extends Controller
         $companySlug = trim((string) $request->query('company', ''));
         $search = trim((string) $request->query('q', ''));
         $hasCall = $request->query('has_call'); // upcoming|any|none|''
-        $schedulePreset = trim((string) $request->query('schedule', '')); // today|tomorrow|''
+        $schedulePreset = trim((string) $request->query('schedule', '')); // today|tomorrow|week|''
         $scheduleFrom = trim((string) $request->query('from', ''));
         $scheduleTo = trim((string) $request->query('to', ''));
+        $sort = trim((string) $request->query('sort', 'created'));
+        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         [$rangeStart, $rangeEnd] = $this->resolveScheduleRange($schedulePreset, $scheduleFrom, $scheduleTo);
 
@@ -34,6 +36,8 @@ class ClientController extends Controller
             $rangeEnd
         );
 
+        $contacts = $this->sortContacts($contacts, $sort, $dir, (bool) ($rangeStart && $rangeEnd));
+
         $companies = Company::query()->orderBy('name')->get();
 
         return view('clients.index', compact(
@@ -44,8 +48,31 @@ class ClientController extends Controller
             'hasCall',
             'schedulePreset',
             'scheduleFrom',
-            'scheduleTo'
+            'scheduleTo',
+            'sort',
+            'dir'
         ));
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Contact>  $contacts
+     * @return \Illuminate\Support\Collection<int, Contact>
+     */
+    private function sortContacts($contacts, string $sort, string $dir, bool $rangeActive)
+    {
+        $keys = [
+            'name' => fn (Contact $c) => mb_strtolower((string) $c->full_name),
+            'company' => fn (Contact $c) => mb_strtolower((string) ($c->ownerCompany?->name ?? '')),
+            'created' => fn (Contact $c) => optional($c->created_at)->timestamp ?? 0,
+            'call' => fn (Contact $c) => optional($c->next_call_at)->timestamp ?? 0,
+            'calls' => fn (Contact $c) => (int) $c->calls_count,
+            'location' => fn (Contact $c) => mb_strtolower((string) ($c->geo_location ?? '')),
+        ];
+
+        $key = $keys[$sort] ?? $keys['created'];
+        $sorted = $contacts->sortBy($key, SORT_REGULAR, $dir === 'desc');
+
+        return $sorted->values();
     }
 
     public function export(Request $request): StreamedResponse
@@ -258,12 +285,18 @@ class ClientController extends Controller
             $contact->has_geo_profile = in_array('geo', $roles, true);
             $contact->has_static_profile = in_array('static', $roles, true);
 
+            $contact->geo_city = trim((string) ($display?->city ?? ''));
+            $contact->geo_region = trim((string) ($display?->region ?? ''));
+            $contact->geo_country = trim((string) ($display?->country ?: $display?->country_code ?: ''));
+            $contact->geo_country_code = trim((string) ($display?->country_code ?? ''));
+            $contact->geo_provider = trim((string) ($display?->client_isp ?: $display?->client_org ?: ''));
+
             $parts = array_values(array_filter([
-                trim((string) ($display?->city ?? '')),
-                trim((string) ($display?->region ?? '')),
+                $contact->geo_city,
+                $contact->geo_region,
                 trim((string) ($display?->country_code ?: $display?->country ?: '')),
             ], fn ($p) => $p !== ''));
-            $contact->geo_location = $parts ? implode(',', $parts) : '';
+            $contact->geo_location = $parts ? implode(', ', $parts) : '';
             $contact->geo_profile_name = $display
                 ? (string) ($display->profiles
                     ->where('profile_role', 'geo')
@@ -300,6 +333,12 @@ class ClientController extends Controller
             $start = Carbon::now($tz)->addDay()->startOfDay();
 
             return [$start, $start->copy()->addDay()];
+        }
+
+        if ($preset === 'week') {
+            $start = Carbon::now($tz)->startOfDay();
+
+            return [$start, $start->copy()->addDays(7)];
         }
 
         $start = null;

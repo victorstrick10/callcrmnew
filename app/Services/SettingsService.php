@@ -189,10 +189,10 @@ class SettingsService
             throw new RuntimeException('Select a company before syncing Multilogin profiles.');
         }
 
-        $token = $company->getMultiloginToken();
-        if (! $token) {
+        if (! $this->multilogin->isConfiguredFor($company)) {
             throw new RuntimeException(
-                'Company "'.$company->name.'" has no Multilogin token configured.'
+                'No Multilogin token available. Add a Multilogin token on the company '
+                .'(Companies → Edit) or globally in Integrations → Multilogin.'
             );
         }
 

@@ -114,6 +114,19 @@ class MultiloginClient
         return $client;
     }
 
+    /**
+     * True when a usable Multilogin credential exists for this company — either
+     * the company's own token or the global Integrations automation token (or
+     * when running in simulation mode). Used so features like Profile Numbers
+     * keep working when Multilogin is configured only in Integrations.
+     */
+    public function isConfiguredFor(?\App\Models\Company $company): bool
+    {
+        $client = $this->forCompany($company);
+
+        return $client->simulation || $client->token !== '';
+    }
+
     public function headers(): array
     {
         if (!$this->token) {

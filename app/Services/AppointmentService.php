@@ -18,6 +18,7 @@ class AppointmentService
         private AuditService $audit,
         private ProfileNameFormatter $names,
         private StaticProxyService $staticProxies,
+        private IntegrationSettingsService $settings,
     ) {
     }
 
@@ -32,13 +33,54 @@ class AppointmentService
     {
         $appointment->loadMissing('company');
         $company = $appointment->company;
-        if (! $company || ! $company->getMultiloginToken()) {
+        if (! $company) {
+            throw new RuntimeException('This appointment has no company; assign one before creating profiles.');
+        }
+        if (! $this->multilogin->isConfiguredFor($company)) {
             throw new RuntimeException(
-                'Company "'.($company?->name ?? 'unknown').'" has no Multilogin token configured.'
+                'No Multilogin token available for "'.$company->name.'". Add it on the company '
+                .'(Companies → Edit) or globally in Integrations → Multilogin.'
             );
         }
 
         return $company;
+    }
+
+    /**
+     * Automatically enrich an appointment's geolocation from its captured IP
+     * using the IPinfo token, as soon as the lead/call arrives. Best-effort:
+     * silently skips when there is no IP, when geo is already known, or when
+     * no IPinfo token is configured, and never throws into the caller.
+     */
+    public function autoEnrich(Appointment $appointment): bool
+    {
+        if (! $appointment->ip_address) {
+            return false;
+        }
+
+        // Already geolocated — do not spend another IPinfo lookup.
+        if (trim((string) ($appointment->country_code ?: $appointment->country)) !== '') {
+            return false;
+        }
+
+        $token = $this->settings->getSettings('ipinfo')['api_token'] ?? '';
+        if (! $token) {
+            return false;
+        }
+
+        try {
+            $this->enrich($appointment);
+            $this->audit->log(
+                'Auto IPinfo enrichment on intake',
+                "Appointment #{$appointment->id}: {$appointment->city}, {$appointment->region}, {$appointment->country}"
+            );
+
+            return true;
+        } catch (Throwable $e) {
+            $this->audit->log('Auto IPinfo enrichment failed', "Appointment #{$appointment->id}: {$e->getMessage()}");
+
+            return false;
+        }
     }
 
     public function enrich(Appointment $appointment): Appointment

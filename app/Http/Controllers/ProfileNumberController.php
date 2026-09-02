@@ -99,9 +99,10 @@ class ProfileNumberController extends Controller
         $redirect = redirect()->route('numbers.index', ['company_id' => $profileNumber->company_id]);
 
         try {
-            if (! $company || ! $company->getMultiloginToken()) {
+            if (! $multilogin->isConfiguredFor($company)) {
                 throw new RuntimeException(
-                    'Company "'.($company?->name ?? 'unknown').'" has no Multilogin token configured.'
+                    'No Multilogin token available for "'.($company?->name ?? 'unknown').'". '
+                    .'Configure it on the company or in Integrations → Multilogin.'
                 );
             }
 
