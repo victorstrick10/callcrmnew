@@ -28,13 +28,29 @@ class SystemStatusService
         $rows = IntegrationSetting::query()->get()->keyBy('provider');
 
         $ipinfo = $this->providerStatus($rows->get('ipinfo'), 'api_token');
-        $multilogin = $this->providerStatus($rows->get('multilogin'), 'automation_token');
 
-        $companiesTotal = Company::query()->count();
+        $companies = Company::query()->get();
+        $companiesTotal = $companies->count();
         $calendlyCompanies = Company::query()
             ->whereNotNull('calendly_api_token_encrypted')
             ->where('calendly_api_token_encrypted', '!=', '')
             ->count();
+
+        // Multilogin now lives per company.
+        $mlConfigured = $companies->contains(
+            fn ($c) => $c->getMultiloginToken() || ! empty($c->multiloginConfig())
+        );
+        $mlStates = $companies->map(fn ($c) => $c->serviceState('multilogin'));
+        $mlState = $mlStates->contains('up')
+            ? 'up'
+            : ($mlStates->contains('down') ? 'down' : ($mlConfigured ? 'unknown' : 'missing'));
+        $multilogin = [
+            'configured' => $mlConfigured,
+            'ok' => $mlState === 'up',
+            'state' => $mlState,
+            'message' => '',
+            'checked_at' => null,
+        ];
 
         $lastSync = AuditLog::query()
             ->where(function ($q) {

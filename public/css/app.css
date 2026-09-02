@@ -218,3 +218,18 @@ select:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 textarea{width:100%;border:1px solid #dfe4ec;background:#fbfcfe;border-radius:11px;padding:12px 13px;outline:none;font:inherit;resize:vertical}
 textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .code-input{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5}
+
+/* Company edit sections + status circles */
+.section-title{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#8a94a6;margin:22px 0 6px;border-top:1px solid var(--line);padding-top:16px}
+.switch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+@media(max-width:760px){.switch-grid{grid-template-columns:1fr}}
+.company-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+.company-card-head{display:flex;gap:14px;align-items:center}
+.company-card-head h3{margin:0;font-size:16px}.company-card-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.svc-status-row{display:flex;gap:8px;flex-wrap:wrap}
+.svc-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;background:#f0f2f7;color:#64748b}
+.svc-status .dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+.svc-status.state-up{background:#e7f8f0;color:#137a50}.svc-status.state-up .dot{background:#22c55e}
+.svc-status.state-down{background:#fdecee;color:#b42337}.svc-status.state-down .dot{background:#ef4444}
+.svc-status.state-unknown{background:#f4f6fa;color:#8a94a6}.svc-status.state-unknown .dot{background:#cbd5e1}
+.company-keys{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted)}

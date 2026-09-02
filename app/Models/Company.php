@@ -14,12 +14,53 @@ class Company extends Model
         'lead_api_url',
         'calendly_org_uri',
         'multilogin_base_url',
+        'multilogin_config',
+        'service_status',
         'enabled',
     ];
 
     protected $casts = [
         'enabled' => 'boolean',
+        'multilogin_config' => 'array',
+        'service_status' => 'array',
     ];
+
+    /** Advanced Multilogin settings for this company (workspace, folders, proxy, etc.). */
+    public function multiloginConfig(): array
+    {
+        return is_array($this->multilogin_config) ? $this->multilogin_config : [];
+    }
+
+    /** Record a service connectivity result (lead|calendly|multilogin). */
+    public function setServiceStatus(string $service, bool $ok, string $message = ''): void
+    {
+        $status = is_array($this->service_status) ? $this->service_status : [];
+        $status[$service] = [
+            'ok' => $ok,
+            'message' => $message,
+            'at' => now()->toIso8601String(),
+        ];
+        $this->service_status = $status;
+        $this->save();
+    }
+
+    /** up | down | unknown for a given service. */
+    public function serviceState(string $service): string
+    {
+        $status = is_array($this->service_status) ? ($this->service_status[$service] ?? null) : null;
+        if (! is_array($status) || ! array_key_exists('ok', $status)) {
+            return 'unknown';
+        }
+
+        return $status['ok'] ? 'up' : 'down';
+    }
+
+    public function serviceMessage(string $service): string
+    {
+        $status = is_array($this->service_status) ? ($this->service_status[$service] ?? null) : null;
+
+        return is_array($status) ? (string) ($status['message'] ?? '') : '';
+    }
 
     public function contacts(): HasMany
     {

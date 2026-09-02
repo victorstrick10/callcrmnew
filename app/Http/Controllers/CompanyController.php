@@ -8,6 +8,8 @@ use App\Services\CalendlyApiClient;
 use App\Services\CompanyLeadApiClient;
 use App\Services\IntegrationSettingsService;
 use App\Services\LeadSyncService;
+use App\Services\MultiloginClient;
+use App\Services\ProfileNumberService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -43,6 +45,7 @@ class CompanyController extends Controller
         $data = $this->validated($request);
         $company = Company::create($data);
         $this->applySecrets($company, $request);
+        $this->applyMultiloginConfig($company, $request);
         $company->save();
 
         return redirect()->route('companies.edit', $company)->with('success', 'Company created.');
@@ -60,9 +63,78 @@ class CompanyController extends Controller
     {
         $company->fill($this->validated($request));
         $this->applySecrets($company, $request);
+        $this->applyMultiloginConfig($company, $request);
         $company->save();
 
         return redirect()->route('companies.edit', $company)->with('success', 'Company saved.');
+    }
+
+    /**
+     * Connect to this company's Multilogin workspace, discover folders/profiles,
+     * store the results on the company, and mark its profile-number pool.
+     */
+    public function connectMultilogin(
+        Company $company,
+        MultiloginClient $multilogin,
+        ProfileNumberService $numbers
+    ): RedirectResponse {
+        try {
+            $client = $multilogin->forCompany($company);
+            $cfg = $company->multiloginConfig();
+            $result = $client->discover((string) ($cfg['workspace_id'] ?? ''));
+
+            $cfg['discovery_cache'] = $result;
+            $cfg['workspace_id'] = $result['selected_workspace_id'] ?? ($cfg['workspace_id'] ?? '');
+            foreach (($result['endpoints'] ?? []) as $k => $v) {
+                if ($v) {
+                    $cfg[$k] = $v;
+                }
+            }
+            $company->multilogin_config = $cfg;
+            $company->save();
+
+            $numbers->syncFromProfiles($company->id, $result['profiles'] ?? [], ! $client->simulation);
+
+            $company->setServiceStatus('multilogin', true, $result['message'] ?? 'Connected.');
+
+            return back()->with('success', 'Multilogin: '.($result['message'] ?? 'Connected.'));
+        } catch (Throwable $e) {
+            $company->setServiceStatus('multilogin', false, $e->getMessage());
+
+            return back()->with('danger', 'Multilogin connect failed: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Persist the advanced Multilogin settings for this company (single source of truth).
+     */
+    private function applyMultiloginConfig(Company $company, Request $request): void
+    {
+        if (! $request->hasAny([
+            'ml_workspace_id', 'ml_geo_folder_id', 'ml_static_folder_id', 'ml_template_profile_id',
+            'ml_simulation_mode', 'ml_multilogin_proxy_protocol', 'ml_multilogin_proxy_session_type',
+        ])) {
+            return;
+        }
+
+        $cfg = $company->multiloginConfig();
+
+        foreach ([
+            'workspace_id', 'geo_folder_id', 'static_folder_id', 'template_profile_id',
+            'template_name_filter', 'multilogin_proxy_type', 'multilogin_proxy_protocol',
+            'multilogin_proxy_session_type', 'multilogin_proxy_ip_ttl', 'proxy_generate_endpoint',
+            'browser_type', 'os_type',
+        ] as $key) {
+            if ($request->has('ml_'.$key)) {
+                $cfg[$key] = (string) $request->input('ml_'.$key);
+            }
+        }
+
+        $cfg['simulation_mode'] = $request->boolean('ml_simulation_mode') ? 'true' : 'false';
+        $cfg['multilogin_proxy_strict_mode'] = $request->boolean('ml_strict_mode') ? 'true' : 'false';
+        $cfg['base_url'] = $company->multilogin_base_url ?: 'https://api.multilogin.com';
+
+        $company->multilogin_config = $cfg;
     }
 
     public function destroy(Company $company): RedirectResponse
@@ -78,9 +150,12 @@ class CompanyController extends Controller
         try {
             $rows = $client->fetchAll($company);
             $count = count($rows);
+            $company->setServiceStatus('lead', true, "OK — {$count} row(s) returned.");
 
             return back()->with('success', "Lead API OK — {$count} row(s) returned.");
         } catch (Throwable $e) {
+            $company->setServiceStatus('lead', false, $e->getMessage());
+
             return back()->with('danger', 'Lead API failed: '.$e->getMessage());
         }
     }
@@ -95,8 +170,12 @@ class CompanyController extends Controller
                 $company->save();
             }
 
+            $company->setServiceStatus('calendly', true, 'OK — user '.($me['user_uri'] ?? 'unknown'));
+
             return back()->with('success', 'Calendly OK — user '.($me['user_uri'] ?? 'unknown').($org ? " · org {$org}" : ''));
         } catch (Throwable $e) {
+            $company->setServiceStatus('calendly', false, $e->getMessage());
+
             return back()->with('danger', 'Calendly failed: '.$e->getMessage());
         }
     }

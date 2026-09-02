@@ -87,18 +87,32 @@ class MultiloginClient
             return $this;
         }
 
+        $companyCfg = $company->multiloginConfig();
         $token = $company->getMultiloginToken();
-        if (! $token) {
+
+        // No per-company token AND no per-company config → fall back to global.
+        if (! $token && empty($companyCfg)) {
             return $this;
         }
 
         $client = new self(
-            $token,
-            $company->multilogin_base_url ?: '',
+            $token ?: ($companyCfg['automation_token'] ?? ''),
+            $company->multilogin_base_url ?: ($companyCfg['base_url'] ?? ''),
             $this->settings,
             $this->audit,
             $this->profileNumbers,
         );
+
+        // Overlay the company's advanced Multilogin config over the global defaults
+        // so Multilogin is configured in one place (per company).
+        if (! empty($companyCfg)) {
+            $client->cfg = array_merge($client->cfg, array_filter($companyCfg, fn ($v) => $v !== null && $v !== ''));
+            if (! empty($companyCfg['base_url'])) {
+                $client->base_url = rtrim((string) $companyCfg['base_url'], '/');
+            }
+            $sim = strtolower((string) ($companyCfg['simulation_mode'] ?? ($client->cfg['simulation_mode'] ?? 'false')));
+            $client->simulation = in_array($sim, ['1', 'true', 'yes', 'on'], true);
+        }
 
         // Global geo/static folder IDs belong to one Multilogin workspace (e.g. Diligent).
         // A company token from another workspace (e.g. Rusell) gets HTTP 501 HTML when
