@@ -16,23 +16,6 @@ Route::get('/health', function () {
     return response('ok', 200);
 });
 
-// TEMPORARY read-only diagnostic (reports token PRESENCE only, never values).
-// Remove after verifying the Multilogin token state.
-Route::get('/debug/tokens-9f3a', function () {
-    return response()->json(
-        \App\Models\Company::query()->orderBy('name')->get()->map(fn ($c) => [
-            'company' => $c->name,
-            'ml_token_encrypted_column' => $c->multilogin_token_encrypted ? 'SET' : 'NULL',
-            'ml_token_decrypts' => $c->getMultiloginToken() ? 'OK (usable)' : 'EMPTY',
-            'ml_cfg_token' => ($c->multiloginConfig()['automation_token'] ?? '') ? 'SET' : 'none',
-            'calendly_token_decrypts' => $c->getCalendlyApiToken() ? 'OK' : 'EMPTY',
-            'lead_key_decrypts' => $c->getLeadApiKey() ? 'OK' : 'EMPTY',
-            'ml_status' => $c->serviceState('multilogin'),
-            'ml_status_msg' => $c->serviceMessage('multilogin'),
-        ])->all()
-    );
-});
-
 Route::post('/system/check-all', [CompanyController::class, 'runAllChecks'])->name('system.check-all');
 
 Route::get('/', DashboardController::class)->name('dashboard');
