@@ -35,7 +35,7 @@
     <button class="chip-btn {{ $chip('today') }}" type="submit" name="schedule" value="today">Today’s calls</button>
     <button class="chip-btn {{ $chip('tomorrow') }}" type="submit" name="schedule" value="tomorrow">Tomorrow’s calls</button>
     <button class="chip-btn {{ $chip('week') }}" type="submit" name="schedule" value="week">Next 7 days</button>
-    <button class="chip-btn {{ ($schedulePreset ?? '') === '' ? 'chip-active' : '' }}" type="submit" name="schedule" value="">All dates</button>
+    <button class="chip-btn {{ $chip('all') }}" type="submit" name="schedule" value="all">All dates</button>
   </div>
 
   <div class="form-grid five" style="align-items:end;margin-top:14px">

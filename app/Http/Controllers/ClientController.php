@@ -22,10 +22,20 @@ class ClientController extends Controller
         $companySlug = trim((string) $request->query('company', ''));
         $search = trim((string) $request->query('q', ''));
         $hasCall = $request->query('has_call'); // upcoming|any|none|''
-        // Default to Today's calls when no schedule filter is supplied.
-        $schedulePreset = $request->query('schedule') === null ? 'today' : trim((string) $request->query('schedule'));
         $scheduleFrom = trim((string) $request->query('from', ''));
         $scheduleTo = trim((string) $request->query('to', ''));
+        // Schedule preset resolution:
+        //  - explicit value (today|tomorrow|week|all|'') -> use it as given
+        //  - no schedule param but a custom from/to range -> honor the range
+        //  - nothing at all (first visit) -> default to Today's calls
+        $scheduleParam = $request->query('schedule');
+        if ($scheduleParam !== null) {
+            $schedulePreset = trim((string) $scheduleParam);
+        } elseif ($scheduleFrom !== '' || $scheduleTo !== '') {
+            $schedulePreset = '';
+        } else {
+            $schedulePreset = 'today';
+        }
         // Default sort by scheduled call time (earliest first).
         $sort = trim((string) $request->query('sort', 'call'));
         $dir = strtolower((string) $request->query('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -424,6 +434,11 @@ class ClientController extends Controller
     private function resolveScheduleRange(string $preset, string $from, string $to): array
     {
         $tz = config('app.display_timezone') ?: config('app.timezone');
+
+        // "All dates" sentinel: no date range at all.
+        if ($preset === 'all') {
+            return [null, null];
+        }
 
         if ($preset === 'today') {
             $start = Carbon::now($tz)->startOfDay();
