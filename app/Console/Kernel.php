@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('leads:sync')->everyFifteenMinutes();
         $schedule->command('ipinfo:enrich')->everyFifteenMinutes()->withoutOverlapping();
+        $schedule->command('profiles:sync-numbers')->everyFifteenMinutes()->withoutOverlapping();
     }
 
     /**

@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\StaticProxy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\View\View;
+use Throwable;
 
 class StaticProxyController extends Controller
 {
@@ -90,6 +92,87 @@ class StaticProxyController extends Controller
         return redirect()
             ->route('static-proxies.index', ['provider' => $data['provider']])
             ->with($type, "Imported {$created} proxy(ies), skipped {$skipped} duplicate(s).");
+    }
+
+    /** Probe a single proxy against ipinfo.io to confirm it is live. */
+    public function check(StaticProxy $staticProxy): RedirectResponse
+    {
+        $result = $this->probe($staticProxy);
+        $type = $result['ok'] ? 'success' : 'danger';
+        $msg = $result['ok']
+            ? "Proxy {$staticProxy->host}:{$staticProxy->port} is LIVE (exit IP {$result['ip']})."
+            : "Proxy {$staticProxy->host}:{$staticProxy->port} is DOWN: {$result['error']}";
+
+        return back()->with($type, $msg);
+    }
+
+    /** Probe every proxy (bounded) and report how many are live. */
+    public function checkAll(Request $request): RedirectResponse
+    {
+        @set_time_limit(180);
+        $provider = trim((string) $request->input('provider', ''));
+        $query = StaticProxy::query();
+        if ($provider !== '') {
+            $query->where('provider', $provider);
+        }
+
+        $up = 0;
+        $down = 0;
+        foreach ($query->limit(100)->get() as $proxy) {
+            $this->probe($proxy)['ok'] ? $up++ : $down++;
+        }
+
+        return redirect()
+            ->route('static-proxies.index', array_filter(['provider' => $provider]))
+            ->with($up > 0 ? 'success' : 'warning', "Proxy check: {$up} live, {$down} down (via ipinfo.io).");
+    }
+
+    /**
+     * Route a request through the proxy to ipinfo.io and record the result.
+     *
+     * @return array{ok:bool,ip?:string,error?:string}
+     */
+    private function probe(StaticProxy $proxy): array
+    {
+        $scheme = strtolower((string) $proxy->protocol) === 'socks5' ? 'socks5h' : 'http';
+        $auth = '';
+        if (trim((string) $proxy->username) !== '') {
+            $auth = rawurlencode($proxy->username).':'.rawurlencode((string) $proxy->password).'@';
+        }
+        $proxyUrl = "{$scheme}://{$auth}{$proxy->host}:{$proxy->port}";
+
+        try {
+            $response = Http::withOptions(['proxy' => $proxyUrl])
+                ->timeout(20)
+                ->get('https://ipinfo.io/json');
+
+            if ($response->successful()) {
+                $ip = (string) ($response->json()['ip'] ?? '');
+                $proxy->forceFill([
+                    'last_check_status' => 'up',
+                    'exit_ip' => $ip,
+                    'last_checked_at' => now(),
+                ])->save();
+
+                return ['ok' => true, 'ip' => $ip];
+            }
+
+            $proxy->forceFill([
+                'last_check_status' => 'down',
+                'exit_ip' => '',
+                'last_checked_at' => now(),
+            ])->save();
+
+            return ['ok' => false, 'error' => 'HTTP '.$response->status()];
+        } catch (Throwable $e) {
+            $proxy->forceFill([
+                'last_check_status' => 'down',
+                'exit_ip' => '',
+                'last_checked_at' => now(),
+            ])->save();
+
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
     }
 
     public function update(Request $request, StaticProxy $staticProxy): RedirectResponse

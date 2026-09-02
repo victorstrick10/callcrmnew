@@ -51,6 +51,8 @@ Route::put('/numbers/{profileNumber}', [ProfileNumberController::class, 'update'
 Route::get('/static-proxies', [StaticProxyController::class, 'index'])->name('static-proxies.index');
 Route::post('/static-proxies', [StaticProxyController::class, 'store'])->name('static-proxies.store');
 Route::post('/static-proxies/import', [StaticProxyController::class, 'import'])->name('static-proxies.import');
+Route::post('/static-proxies/check-all', [StaticProxyController::class, 'checkAll'])->name('static-proxies.check-all');
+Route::post('/static-proxies/{staticProxy}/check', [StaticProxyController::class, 'check'])->name('static-proxies.check');
 Route::put('/static-proxies/{staticProxy}', [StaticProxyController::class, 'update'])->name('static-proxies.update');
 Route::delete('/static-proxies/{staticProxy}', [StaticProxyController::class, 'destroy'])->name('static-proxies.destroy');
 

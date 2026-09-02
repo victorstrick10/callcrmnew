@@ -8,12 +8,24 @@ class StaticProxy extends Model
 {
     protected $fillable = [
         'label', 'provider', 'location', 'host', 'port', 'username', 'password', 'protocol', 'enabled',
+        'last_check_status', 'exit_ip', 'last_checked_at',
     ];
 
     protected $casts = [
         'port' => 'integer',
         'enabled' => 'boolean',
+        'last_checked_at' => 'datetime',
     ];
+
+    /** up | down | unknown for the last liveness check. */
+    public function checkState(): string
+    {
+        return match ($this->last_check_status) {
+            'up' => 'up',
+            'down' => 'down',
+            default => 'unknown',
+        };
+    }
 
     public function scopeEnabled($query)
     {
