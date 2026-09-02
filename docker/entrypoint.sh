@@ -31,7 +31,14 @@ case "${CONTAINER_ROLE:-web}" in
         exec php artisan queue:work --sleep=3 --tries=3 --max-time=3600
         ;;
     scheduler)
-        exec php artisan schedule:work
+        # Run the cron loop in the background and serve /health so Railway's
+        # healthcheck (shared railway.toml) keeps the service marked healthy.
+        php artisan schedule:work &
+        PORT="${PORT:-8080}"
+        echo "Scheduler running; health server on 0.0.0.0:${PORT}"
+        cd /var/www/html/public
+        exec php -S "0.0.0.0:${PORT}" \
+            ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php
         ;;
     *)
         echo "Unknown CONTAINER_ROLE: $CONTAINER_ROLE (expected web, worker, or scheduler)"
