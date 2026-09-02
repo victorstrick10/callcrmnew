@@ -875,6 +875,47 @@ class MultiloginClient
         return null;
     }
 
+    /**
+     * Lightweight token validity check: a minimal authenticated call. Returns
+     * [ok, message]. 401/403 => token expired/unauthorized (red); a 2xx or a
+     * body-validation error (400/409/422) means auth was accepted (green).
+     *
+     * @return array{0: bool, 1: string}
+     */
+    public function pingToken(): array
+    {
+        if ($this->simulation) {
+            return [true, 'Simulation mode (no live token needed).'];
+        }
+        if ($this->token === '') {
+            return [false, 'No Multilogin token configured.'];
+        }
+
+        try {
+            $response = Http::withHeaders($this->headers())
+                ->timeout(20)
+                ->post($this->base_url.'/profile/search', [
+                    'is_removed' => false,
+                    'limit' => 1,
+                    'offset' => 0,
+                    'search_text' => '',
+                    'storage_type' => 'all',
+                ]);
+        } catch (\Throwable $e) {
+            return [false, 'Connection error: '.$e->getMessage()];
+        }
+
+        $status = $response->status();
+        if ($response->successful() || in_array($status, [400, 409, 422], true)) {
+            return [true, 'Token is live (HTTP '.$status.').'];
+        }
+        if (in_array($status, [401, 403], true)) {
+            return [false, 'Token expired / unauthorized (HTTP '.$status.'). Re-enter the Multilogin token.'];
+        }
+
+        return [false, 'Multilogin returned HTTP '.$status.'.'];
+    }
+
     public static function _extract_token($body): ?string
     {
         $data = (is_array($body) && array_key_exists('data', $body)) ? $body['data'] : $body;

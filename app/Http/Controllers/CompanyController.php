@@ -106,6 +106,17 @@ class CompanyController extends Controller
     }
 
     /**
+     * Ping the company's Multilogin token and update the live/expired status light.
+     */
+    public function testMultilogin(Company $company, MultiloginClient $multilogin): RedirectResponse
+    {
+        [$ok, $message] = $multilogin->forCompany($company)->pingToken();
+        $company->setServiceStatus('multilogin', $ok, $message);
+
+        return back()->with($ok ? 'success' : 'danger', 'Multilogin token: '.$message);
+    }
+
+    /**
      * Persist the advanced Multilogin settings for this company (single source of truth).
      */
     private function applyMultiloginConfig(Company $company, Request $request): void

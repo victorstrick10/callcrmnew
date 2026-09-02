@@ -156,6 +156,7 @@
     <div class="form-actions" style="margin-top:1rem;flex-wrap:wrap">
       <form method="post" action="{{ route('companies.test-lead-api', $company) }}">@csrf<button class="btn btn-secondary" type="submit">Test lead API</button></form>
       <form method="post" action="{{ route('companies.test-calendly', $company) }}">@csrf<button class="btn btn-secondary" type="submit">Test Calendly</button></form>
+      <form method="post" action="{{ route('companies.multilogin.test', $company) }}">@csrf<button class="btn btn-secondary" type="submit">🔌 Test Multilogin token (live/expired)</button></form>
       <form method="post" action="{{ route('companies.multilogin.connect', $company) }}">@csrf<button class="btn btn-secondary" type="submit">⚡ Connect Multilogin &amp; sync numbers</button></form>
       <form method="post" action="{{ route('companies.sync', $company) }}">@csrf<button class="btn btn-primary" type="submit">Sync leads + Calendly</button></form>
     </div>

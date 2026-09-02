@@ -43,8 +43,13 @@ class RefreshMultiloginTokensCommand extends Command
                 } else {
                     $skipped++;
                 }
+
+                // Update the live/expired status light from a real token ping.
+                [$ok, $message] = $multilogin->forCompany($company->fresh())->pingToken();
+                $company->setServiceStatus('multilogin', $ok, $message);
             } catch (Throwable $e) {
                 $skipped++;
+                $company->setServiceStatus('multilogin', false, $e->getMessage());
                 $this->warn("{$company->slug}: {$e->getMessage()}");
             }
         }

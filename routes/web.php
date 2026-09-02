@@ -42,6 +42,7 @@ Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->na
 Route::post('/companies/{company}/test-lead-api', [CompanyController::class, 'testLeadApi'])->name('companies.test-lead-api');
 Route::post('/companies/{company}/test-calendly', [CompanyController::class, 'testCalendly'])->name('companies.test-calendly');
 Route::post('/companies/{company}/multilogin/connect', [CompanyController::class, 'connectMultilogin'])->name('companies.multilogin.connect');
+Route::post('/companies/{company}/multilogin/test', [CompanyController::class, 'testMultilogin'])->name('companies.multilogin.test');
 Route::post('/companies/{company}/sync', [CompanyController::class, 'sync'])->name('companies.sync');
 
 Route::get('/numbers', [ProfileNumberController::class, 'index'])->name('numbers.index');
