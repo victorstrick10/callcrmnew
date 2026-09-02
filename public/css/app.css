@@ -213,3 +213,8 @@ select:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .search-group{display:flex;gap:8px;align-items:stretch}
 .search-group input{flex:1}
 .search-group .btn{white-space:nowrap}
+
+/* Textarea + code input */
+textarea{width:100%;border:1px solid #dfe4ec;background:#fbfcfe;border-radius:11px;padding:12px 13px;outline:none;font:inherit;resize:vertical}
+textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
+.code-input{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5}

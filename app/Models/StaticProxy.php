@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class StaticProxy extends Model
 {
     protected $fillable = [
-        'label', 'host', 'port', 'username', 'password', 'protocol', 'enabled',
+        'label', 'provider', 'location', 'host', 'port', 'username', 'password', 'protocol', 'enabled',
     ];
 
     protected $casts = [

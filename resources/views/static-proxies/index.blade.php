@@ -5,61 +5,99 @@
 @section('page_subtitle', 'Pool of proxies assigned randomly when creating STATIC Multilogin profiles')
 
 @section('content')
+@php
+  $providerLabel = fn ($p) => $providers[$p] ?? ($p ?: 'Other');
+@endphp
+
+<div class="tabs" role="tablist">
+  <a class="chip-btn {{ ($provider ?? '') === '' ? 'chip-active' : '' }}" href="{{ route('static-proxies.index') }}">All ({{ $all->count() }})</a>
+  @foreach ($providers as $key => $label)
+    <a class="chip-btn {{ ($provider ?? '') === $key ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', ['provider' => $key]) }}">{{ $label }} ({{ $counts[$key] ?? 0 }})</a>
+  @endforeach
+  @if (($counts['other'] ?? 0) > 0)
+    <a class="chip-btn {{ ($provider ?? '') === 'other' ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', ['provider' => 'other']) }}">Other ({{ $counts['other'] }})</a>
+  @endif
+</div>
+
 <div class="stat-grid three">
-  <div class="stat-card"><span>Total</span><strong>{{ $proxies->count() }}</strong><small>Configured proxies</small></div>
+  <div class="stat-card"><span>Total {{ $provider ? '· '.$providerLabel($provider) : '' }}</span><strong>{{ $proxies->count() }}</strong><small>Configured proxies</small></div>
   <div class="stat-card"><span>Enabled</span><strong>{{ $proxies->where('enabled', true)->count() }}</strong><small>Available for random pick</small></div>
   <div class="stat-card"><span>Disabled</span><strong>{{ $proxies->where('enabled', false)->count() }}</strong><small>Excluded from pool</small></div>
 </div>
 
-<div class="panel">
-  <div class="panel-head">
-    <div><h2>Add proxy</h2><p>New entries join the random pool when enabled</p></div>
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><div><h2>Bulk import</h2><p>Paste your provider's proxy list (ProxyCheap / MobileHop)</p></div></div>
+    <form method="post" action="{{ route('static-proxies.import') }}">
+      @csrf
+      <div class="form-grid">
+        <div>
+          <label>Provider</label>
+          <select name="provider">
+            @foreach ($providers as $key => $label)
+              <option value="{{ $key }}" @selected(($provider ?? '') === $key)>{{ $label }}</option>
+            @endforeach
+          </select>
+        </div>
+        <div>
+          <label>Protocol</label>
+          <select name="protocol">
+            <option value="http">HTTP</option>
+            <option value="socks5">SOCKS5</option>
+          </select>
+        </div>
+      </div>
+      <label>Paste list</label>
+      <textarea name="raw" rows="8" class="code-input" placeholder="F4A2-2026-06-12&#9;mh_Kristi Duan&#10;Location: New York, NY&#10;IP Address: 199.188.92.125:8000&#10;Username: proxy&#10;Password: 1YSqP9u&#10;..."></textarea>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">⭳ Import proxies</button>
+      </div>
+    </form>
   </div>
-  <form method="post" action="{{ route('static-proxies.store') }}">
-    @csrf
-    <div class="form-grid">
-      <div>
-        <label>Label</label>
-        <input name="label" value="{{ old('label') }}" placeholder="Optional name">
+
+  <div class="panel">
+    <div class="panel-head"><div><h2>Add one proxy</h2><p>Manual entry joins the random pool when enabled</p></div></div>
+    <form method="post" action="{{ route('static-proxies.store') }}">
+      @csrf
+      <div class="form-grid">
+        <div>
+          <label>Provider</label>
+          <select name="provider">
+            <option value="">Other</option>
+            @foreach ($providers as $key => $label)
+              <option value="{{ $key }}" @selected(($provider ?? '') === $key)>{{ $label }}</option>
+            @endforeach
+          </select>
+        </div>
+        <div><label>Label</label><input name="label" value="{{ old('label') }}" placeholder="Optional name"></div>
+        <div><label>Location</label><input name="location" value="{{ old('location') }}" placeholder="City, ST"></div>
+        <div><label>Host</label><input name="host" value="{{ old('host') }}" required placeholder="199.188.92.125"></div>
+        <div><label>Port</label><input type="number" name="port" value="{{ old('port', 8000) }}" min="1" max="65535" required></div>
+        <div>
+          <label>Protocol</label>
+          <select name="protocol">
+            <option value="http" @selected(old('protocol', 'http') === 'http')>HTTP</option>
+            <option value="socks5" @selected(old('protocol') === 'socks5')>SOCKS5</option>
+          </select>
+        </div>
+        <div><label>Username</label><input name="username" value="{{ old('username') }}" placeholder="Optional"></div>
+        <div><label>Password</label><input type="password" name="password" placeholder="Optional"></div>
       </div>
-      <div>
-        <label>Host</label>
-        <input name="host" value="{{ old('host') }}" required placeholder="proxy.example.com">
+      <label class="switch-row">
+        <input type="checkbox" name="enabled" value="1" @checked(old('enabled', true))>
+        <span class="switch"></span>
+        <div><strong>Enabled</strong><small>Include in the random STATIC proxy pool</small></div>
+      </label>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Add proxy</button>
       </div>
-      <div>
-        <label>Port</label>
-        <input type="number" name="port" value="{{ old('port', 8080) }}" min="1" max="65535" required>
-      </div>
-      <div>
-        <label>Protocol</label>
-        <select name="protocol">
-          <option value="http" @selected(old('protocol', 'http') === 'http')>HTTP</option>
-          <option value="socks5" @selected(old('protocol') === 'socks5')>SOCKS5</option>
-        </select>
-      </div>
-      <div>
-        <label>Username</label>
-        <input name="username" value="{{ old('username') }}" placeholder="Optional">
-      </div>
-      <div>
-        <label>Password</label>
-        <input type="password" name="password" placeholder="Optional">
-      </div>
-    </div>
-    <label class="switch-row">
-      <input type="checkbox" name="enabled" value="1" @checked(old('enabled', true))>
-      <span class="switch"></span>
-      <div><strong>Enabled</strong><small>Include in the random STATIC proxy pool</small></div>
-    </label>
-    <div class="form-actions">
-      <button class="btn btn-primary" type="submit">Add proxy</button>
-    </div>
-  </form>
+    </form>
+  </div>
 </div>
 
 <div class="panel">
   <div class="panel-head">
-    <div><h2>Proxy pool</h2><p>Edit entries inline or toggle enabled status</p></div>
+    <div><h2>Proxy pool {{ $provider ? '· '.$providerLabel($provider) : '' }}</h2><p>Edit entries inline or toggle enabled status</p></div>
   </div>
   @foreach ($proxies as $proxy)
     @php $formId = 'proxy-update-'.$proxy->id; @endphp
@@ -72,7 +110,9 @@
     <table>
       <thead>
         <tr>
+          <th>Provider</th>
           <th>Label</th>
+          <th>Location</th>
           <th>Host</th>
           <th>Port</th>
           <th>Protocol</th>
@@ -86,17 +126,26 @@
       @forelse ($proxies as $proxy)
       @php $formId = 'proxy-update-'.$proxy->id; @endphp
       <tr>
-        <td><input form="{{ $formId }}" name="label" value="{{ $proxy->label }}" placeholder="—"></td>
-        <td><input form="{{ $formId }}" name="host" value="{{ $proxy->host }}" required></td>
-        <td><input form="{{ $formId }}" type="number" name="port" value="{{ $proxy->port }}" min="1" max="65535" required style="width:90px"></td>
+        <td>
+          <select form="{{ $formId }}" name="provider" style="min-width:120px">
+            <option value="" @selected(! $proxy->provider)>Other</option>
+            @foreach ($providers as $key => $label)
+              <option value="{{ $key }}" @selected($proxy->provider === $key)>{{ $label }}</option>
+            @endforeach
+          </select>
+        </td>
+        <td><input form="{{ $formId }}" name="label" value="{{ $proxy->label }}" placeholder="—" style="min-width:120px"></td>
+        <td><input form="{{ $formId }}" name="location" value="{{ $proxy->location }}" placeholder="—" style="min-width:110px"></td>
+        <td><input form="{{ $formId }}" name="host" value="{{ $proxy->host }}" required style="min-width:130px"></td>
+        <td><input form="{{ $formId }}" type="number" name="port" value="{{ $proxy->port }}" min="1" max="65535" required style="width:80px"></td>
         <td>
           <select form="{{ $formId }}" name="protocol">
             <option value="http" @selected($proxy->protocol === 'http')>HTTP</option>
             <option value="socks5" @selected($proxy->protocol === 'socks5')>SOCKS5</option>
           </select>
         </td>
-        <td><input form="{{ $formId }}" name="username" value="{{ $proxy->username }}" placeholder="—"></td>
-        <td><input form="{{ $formId }}" type="password" name="password" placeholder="{{ $proxy->password ? '••••••••' : '—' }}"></td>
+        <td><input form="{{ $formId }}" name="username" value="{{ $proxy->username }}" placeholder="—" style="min-width:90px"></td>
+        <td><input form="{{ $formId }}" type="password" name="password" placeholder="{{ $proxy->password ? '••••••••' : '—' }}" style="min-width:90px"></td>
         <td>
           <label class="switch-row" style="margin:0;padding:8px 10px">
             <input form="{{ $formId }}" type="checkbox" name="enabled" value="1" @checked($proxy->enabled)>
@@ -112,9 +161,8 @@
           </form>
         </td>
       </tr>
-      </tr>
       @empty
-      <tr><td colspan="8" class="empty">No static proxies yet. Add one above.</td></tr>
+      <tr><td colspan="10" class="empty">No static proxies{{ $provider ? ' for '.$providerLabel($provider) : '' }} yet. Add or import above.</td></tr>
       @endforelse
       </tbody>
     </table>
