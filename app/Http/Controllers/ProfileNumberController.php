@@ -85,6 +85,39 @@ class ProfileNumberController extends Controller
         }
     }
 
+    /** Sync Multilogin profile numbers for every company at once. */
+    public function syncAll(Request $request, SettingsService $settings, MultiloginClient $multilogin): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        @set_time_limit(180);
+        $done = 0;
+        $skipped = 0;
+        $log = [];
+
+        foreach (Company::query()->orderBy('name')->get() as $company) {
+            if (! $multilogin->isConfiguredFor($company)) {
+                $skipped++;
+                $log[] = "{$company->name}: skipped (no Multilogin token)";
+
+                continue;
+            }
+            try {
+                $result = $settings->syncNumbers($company);
+                $done++;
+                $log[] = "✓ {$company->name}: {$result['numbers_marked']} numbers marked from {$result['profiles_seen']} profiles";
+            } catch (Throwable $e) {
+                $log[] = "✗ {$company->name}: {$e->getMessage()}";
+            }
+        }
+
+        $message = "Synced profile numbers for {$done} company(ies)".($skipped ? ", {$skipped} skipped" : '').'.';
+
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => $done > 0, 'message' => $message, 'log' => $log, 'created' => []]);
+        }
+
+        return back()->with($done > 0 ? 'success' : 'warning', $message);
+    }
+
     public function update(
         Request $request,
         ProfileNumber $profileNumber,

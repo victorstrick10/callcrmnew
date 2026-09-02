@@ -260,3 +260,7 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .clients-table .col-lead strong{font-weight:800;font-size:13px}
 .clients-table .col-geo .geo-lines span{font-weight:600}
 .clients-table th small{font-weight:600;color:#aab2c4;text-transform:none;letter-spacing:0}
+
+/* Clickable stat cards */
+a.stat-card{text-decoration:none;color:inherit;transition:transform .12s,box-shadow .12s;cursor:pointer}
+a.stat-card:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(30,41,59,.14)}

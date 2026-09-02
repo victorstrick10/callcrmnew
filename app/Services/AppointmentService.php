@@ -346,9 +346,10 @@ class AppointmentService
                     $staticProxy = $this->staticProxies->pickForLocation(
                         $appointment->city,
                         $appointment->region,
-                        $cc
+                        $cc,
+                        $appointment->client_isp
                     );
-                    $matchLevel = $this->staticProxies->matchLevel($staticProxy, $appointment->city, $appointment->region, $cc);
+                    $matchLevel = $this->staticProxies->matchLevel($staticProxy, $appointment->city, $appointment->region, $cc, $appointment->client_isp);
                     $providerLabel = $this->providerLabel($staticProxy->provider);
                     $profile->proxy_label = $staticProxy->label ?: $staticProxy->host;
                     $log[] = $matchLevel === 'random'
@@ -437,7 +438,8 @@ class AppointmentService
                     $this->staticProxies->pickForLocation(
                         $appointment->city,
                         $appointment->region,
-                        $appointment->country_code ?: $appointment->country
+                        $appointment->country_code ?: $appointment->country,
+                        $appointment->client_isp
                     )->toMultiloginProxy()
                 );
 

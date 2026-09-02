@@ -13,7 +13,10 @@
 <div class="panel status-panel">
   <div class="panel-head">
     <div><h2>System status</h2><p>Live integration health &amp; automatic pipeline</p></div>
-    <a class="text-link" href="{{ route('settings.index', ['tab' => 'sync']) }}">Manage integrations →</a>
+    <div class="form-actions" style="margin:0">
+      <form method="post" action="{{ route('numbers.sync-all') }}" class="js-progress" style="margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Sync Multilogin profile numbers for all companies">↻ Sync numbers (all)</button></form>
+      <a class="btn btn-secondary" href="{{ route('settings.index', ['tab' => 'sync']) }}">Integrations</a>
+    </div>
   </div>
 
   <div class="status-strip">
@@ -51,13 +54,13 @@
 </div>
 
 <div class="stat-grid wrap compact">
-  <div class="stat-card"><span>Total bookings</span><strong>{{ $stats['appointments'] }}</strong><small>All CRM appointments</small></div>
-  <div class="stat-card"><span>Confirmed calls</span><strong>{{ $stats['scheduled'] }}</strong><small>Scheduled &amp; active</small></div>
-  <div class="stat-card"><span>Calls today</span><strong>{{ $stats['calls_today'] }}</strong><small>All companies</small></div>
-  <div class="stat-card"><span>Calls tomorrow</span><strong>{{ $stats['calls_tomorrow'] }}</strong><small>All companies</small></div>
-  <div class="stat-card accent"><span>Pending today</span><strong>{{ $stats['pending_profiles'] }}</strong><small>Need GEO / STATIC</small></div>
-  <div class="stat-card"><span>Profiles created</span><strong>{{ $stats['profiles'] }}</strong><small>Multilogin</small></div>
-  <div class="stat-card danger"><span>Failed</span><strong>{{ $stats['failed'] }}</strong><small>Require review</small></div>
+  <a class="stat-card" href="{{ route('clients.index') }}"><span>Total bookings</span><strong>{{ $stats['appointments'] }}</strong><small>All CRM appointments</small></a>
+  <a class="stat-card" href="{{ route('clients.index', ['has_call' => 'upcoming']) }}"><span>Confirmed calls</span><strong>{{ $stats['scheduled'] }}</strong><small>Scheduled &amp; active</small></a>
+  <a class="stat-card" href="{{ route('clients.index', ['schedule' => 'today']) }}"><span>Calls today</span><strong>{{ $stats['calls_today'] }}</strong><small>All companies</small></a>
+  <a class="stat-card" href="{{ route('clients.index', ['schedule' => 'tomorrow']) }}"><span>Calls tomorrow</span><strong>{{ $stats['calls_tomorrow'] }}</strong><small>All companies</small></a>
+  <a class="stat-card accent" href="{{ route('clients.index', ['schedule' => 'today']) }}"><span>Pending today</span><strong>{{ $stats['pending_profiles'] }}</strong><small>Need GEO / STATIC</small></a>
+  <a class="stat-card" href="{{ route('clients.index') }}"><span>Profiles created</span><strong>{{ $stats['profiles'] }}</strong><small>Multilogin</small></a>
+  <a class="stat-card danger" href="{{ route('clients.index') }}"><span>Failed</span><strong>{{ $stats['failed'] }}</strong><small>Require review</small></a>
 </div>
 
 <div class="grid-2">
@@ -124,4 +127,6 @@
     @endforelse
   </div>
 </div>
+
+@include('partials.progress-modal')
 @endsection

@@ -87,6 +87,7 @@
       <p>{{ $contacts->count() }} result(s) · click a row for full lead data</p>
     </div>
     <div class="form-actions" style="margin:0">
+      <form method="post" action="{{ route('numbers.sync-all') }}" class="js-progress" style="display:inline;margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Sync Multilogin profile numbers for all companies">↻ Sync numbers (all)</button></form>
       <form method="post" action="{{ route('clients.enrich-geo') }}" style="display:inline;margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Run IPinfo geolocation for leads with an IP">🌐 Run IPinfo (geo)</button></form>
       <a class="btn btn-secondary" href="{{ route('clients.export', $baseQuery) }}">⭳ Export CSV</a>
       <button class="btn btn-primary" type="submit" form="bulkProfilesForm">＋ Create profiles (selected only)</button>

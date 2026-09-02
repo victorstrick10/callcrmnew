@@ -78,7 +78,7 @@ class StaticProxyService
      *   2) otherwise a proxy matching the country,
      *   3) otherwise a random enabled proxy.
      */
-    public function pickForLocation(?string $city, ?string $region, ?string $country): StaticProxy
+    public function pickForLocation(?string $city, ?string $region, ?string $country, ?string $isp = ''): StaticProxy
     {
         $enabled = StaticProxy::query()->enabled()->get();
         if ($enabled->isEmpty()) {
@@ -92,49 +92,69 @@ class StaticProxyService
             $enabled = $mobile->values();
         }
 
-        $haystack = fn (StaticProxy $p) => mb_strtolower(trim(($p->location ?? '').' '.($p->label ?? '')));
-
-        foreach ([$city, $region] as $needle) {
-            $needle = mb_strtolower(trim((string) $needle));
-            if ($needle === '') {
-                continue;
-            }
-            $hit = $enabled->first(fn (StaticProxy $p) => str_contains($haystack($p), $needle));
-            if ($hit) {
-                return $hit;
-            }
-        }
-
-        $country = mb_strtolower(trim((string) $country));
-        if ($country !== '') {
-            $hit = $enabled->first(fn (StaticProxy $p) => str_contains(mb_strtolower((string) $p->location), $country));
-            if ($hit) {
-                return $hit;
+        $rank = ['city_region' => 5, 'city' => 4, 'region' => 3, 'isp' => 2.5, 'country' => 2, 'random' => 0];
+        $best = null;
+        $bestScore = -1;
+        foreach ($enabled as $p) {
+            $level = $this->matchLevel($p, $city, $region, $country, $isp);
+            $score = $rank[$level] + ($p->network_type === 'mobile' ? 0.5 : 0);
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $p;
             }
         }
 
-        return $enabled->random();
+        return $best ?: $enabled->random();
     }
 
     /**
-     * Describe how well a proxy matches a client location:
-     * city_region | city | region | country | random (no match).
+     * Describe how well a proxy matches a client, using the proxy's ipinfo-verified
+     * exit geo (exact 2-letter country code, real region/city, fuzzy ISP):
+     * city_region | city | region | isp | country | random (no match).
      */
-    public function matchLevel(StaticProxy $proxy, ?string $city, ?string $region, ?string $country): string
+    public function matchLevel(StaticProxy $proxy, ?string $city, ?string $region, ?string $country, ?string $isp = ''): string
     {
-        $hay = mb_strtolower(trim(($proxy->location ?? '').' '.($proxy->label ?? '')));
-        $has = fn (?string $n) => ($n = mb_strtolower(trim((string) $n))) !== '' && str_contains($hay, $n);
+        $city = mb_strtolower(trim((string) $city));
+        $region = mb_strtolower(trim((string) $region));
+        // Client country may arrive as a 2-letter code or a full name; use the code.
+        $countryCode = mb_strtolower(trim((string) $country));
 
-        $c = $has($city);
-        $r = $has($region);
-        $cc = $has($country);
+        $pCity = mb_strtolower(trim((string) $proxy->exit_city));
+        $pRegion = mb_strtolower(trim((string) $proxy->exit_region));
+        $pCountry = mb_strtolower(trim((string) $proxy->exit_country));
+        $pText = mb_strtolower(trim(($proxy->exit_isp ?? '').' '.($proxy->location ?? '').' '.($proxy->label ?? '')));
+
+        $sub = fn (string $a, string $b) => $a !== '' && $b !== '' && (str_contains($a, $b) || str_contains($b, $a));
+
+        $c = $sub($pCity, $city);
+        $r = $sub($pRegion, $region);
+        // Country matches only on exact 2-letter code equality (no loose substring).
+        $cc = strlen($countryCode) === 2 && $countryCode === $pCountry;
+        $ispMatch = self::ispMatches($pText, $isp);
 
         return match (true) {
             $c && $r => 'city_region',
             $c => 'city',
             $r => 'region',
+            $ispMatch => 'isp',
             $cc => 'country',
             default => 'random',
         };
+    }
+
+    /** Fuzzy ISP/provider match: any significant word of the client ISP present in the proxy text. */
+    public static function ispMatches(string $haystack, ?string $isp): bool
+    {
+        $isp = mb_strtolower(trim((string) $isp));
+        if ($isp === '') {
+            return false;
+        }
+        foreach (preg_split('/[^a-z0-9]+/', $isp) ?: [] as $word) {
+            if (strlen($word) >= 4 && ! in_array($word, ['inc', 'llc', 'corp', 'communications', 'network', 'networks', 'telecom'], true) && str_contains($haystack, $word)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

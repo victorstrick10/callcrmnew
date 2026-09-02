@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Contact;
 use App\Models\StaticProxy;
 use App\Services\AppointmentService;
+use App\Services\StaticProxyService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -232,21 +233,16 @@ class ClientController extends Controller
      * @param  \Illuminate\Support\Collection<int, StaticProxy>  $proxies
      * @return array{provider:string,location:string,level:string}|null
      */
-    private function bestStaticMatch($proxies, ?string $city, ?string $region, ?string $country): ?array
+    private function bestStaticMatch($proxies, ?string $city, ?string $region, ?string $country, ?string $isp = ''): ?array
     {
-        $rank = ['city_region' => 4, 'city' => 3, 'region' => 2, 'country' => 1];
+        $svc = app(StaticProxyService::class);
+        $rank = ['city_region' => 5, 'city' => 4, 'region' => 3, 'isp' => 2.5, 'country' => 2];
         $best = null;
         $bestScore = 0.0;
 
         foreach ($proxies as $p) {
-            $hay = mb_strtolower(trim(($p->location ?? '').' '.($p->label ?? '')));
-            $has = fn (?string $n) => ($n = mb_strtolower(trim((string) $n))) !== '' && str_contains($hay, $n);
-            $c = $has($city);
-            $r = $has($region);
-            $cc = $has($country);
-
-            $level = $c && $r ? 'city_region' : ($c ? 'city' : ($r ? 'region' : ($cc ? 'country' : null)));
-            if ($level === null) {
+            $level = $svc->matchLevel($p, $city, $region, $country, $isp);
+            if (! isset($rank[$level])) {
                 continue;
             }
 
@@ -381,7 +377,8 @@ class ClientController extends Controller
                 $enabledProxies,
                 $contact->geo_city,
                 $contact->geo_region,
-                $contact->geo_country_code ?: $contact->geo_country
+                $contact->geo_country_code ?: $contact->geo_country,
+                $contact->geo_provider
             );
             $contact->our_proxy_ready = $sm !== null;
             $contact->our_proxy_provider = $sm['provider'] ?? '';

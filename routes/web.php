@@ -47,6 +47,7 @@ Route::post('/companies/{company}/sync', [CompanyController::class, 'sync'])->na
 
 Route::get('/numbers', [ProfileNumberController::class, 'index'])->name('numbers.index');
 Route::post('/numbers/sync', [ProfileNumberController::class, 'sync'])->name('numbers.sync');
+Route::post('/numbers/sync-all', [ProfileNumberController::class, 'syncAll'])->name('numbers.sync-all');
 Route::put('/numbers/{profileNumber}', [ProfileNumberController::class, 'update'])->name('numbers.update');
 
 Route::get('/static-proxies', [StaticProxyController::class, 'index'])->name('static-proxies.index');
