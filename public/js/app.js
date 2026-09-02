@@ -59,6 +59,7 @@ setTimeout(() => {
           ${row('Referrer', lead.referrer)}
           ${row('Lead IP', lead.lead_ip)}
           ${row('Geo location', lead.geo_location)}
+          ${row('Provider (ISP)', lead.geo_provider)}
           ${row('GEO profile', lead.geo_profile_name)}
           ${row('GEO created', lead.has_geo_profile ? 'true' : 'false')}
           ${row('STATIC created', lead.has_static_profile ? 'true' : 'false')}
@@ -124,5 +125,82 @@ setTimeout(() => {
   });
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && !modal.hidden) close();
+  });
+})();
+
+// Clients: gather checked rows into the standalone bulk-create form on submit.
+(function initClientsBulk() {
+  const form = document.getElementById('bulkProfilesForm');
+  const container = document.getElementById('bulkProfilesIds');
+  if (!form || !container) return;
+  form.addEventListener('submit', () => {
+    container.innerHTML = '';
+    document.querySelectorAll('.client-appointment-check:checked').forEach((box) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'appointment_ids[]';
+      input.value = box.value;
+      container.appendChild(input);
+    });
+  });
+})();
+
+// Integrations: simple in-page tab sub-menu (IPinfo / Multilogin / Sync & Status).
+(function initTabs() {
+  const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+  if (!tabs.length) return;
+  const panels = Array.from(document.querySelectorAll('[data-tab-panel]'));
+  const activate = (name) => {
+    tabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+    panels.forEach((p) => { p.hidden = p.dataset.tabPanel !== name; });
+  };
+  tabs.forEach((t) => t.addEventListener('click', () => activate(t.dataset.tab)));
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('tab');
+  const names = tabs.map((t) => t.dataset.tab);
+  activate(names.includes(requested) ? requested : names[0]);
+})();
+
+// Appointment: advanced Profile Builder modal (preview + role selection before create).
+(function initProfileBuilder() {
+  const modal = document.getElementById('profileModal');
+  if (!modal) return;
+
+  const openBtn = document.getElementById('openProfileBuilder');
+  const form = document.getElementById('profileCreateForm');
+  const confirmBtn = document.getElementById('profileConfirm');
+  const ready = modal.dataset.ready === '1';
+
+  const show = () => { modal.hidden = false; document.body.classList.add('modal-open'); };
+  const close = () => { modal.hidden = true; document.body.classList.remove('modal-open'); };
+
+  const roleChecks = () => Array.from(modal.querySelectorAll('.role-check')).filter((c) => !c.disabled);
+  const selected = () => roleChecks().filter((c) => c.checked).map((c) => c.value);
+
+  const updateConfirm = () => {
+    if (!ready) { confirmBtn.disabled = true; confirmBtn.textContent = 'Multilogin not connected'; return; }
+    const sel = selected();
+    confirmBtn.disabled = sel.length === 0;
+    confirmBtn.textContent = sel.length === 0
+      ? 'Select a profile'
+      : 'Create ' + sel.map((s) => s.toUpperCase()).join(' + ');
+  };
+
+  openBtn?.addEventListener('click', show);
+  document.getElementById('profileModalClose')?.addEventListener('click', close);
+  document.getElementById('profileModalCancel')?.addEventListener('click', close);
+  modal.addEventListener('click', (ev) => { if (ev.target === modal) close(); });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !modal.hidden) close(); });
+  roleChecks().forEach((c) => c.addEventListener('change', updateConfirm));
+  updateConfirm();
+
+  form?.addEventListener('submit', (ev) => {
+    const sel = selected();
+    if (!ready || sel.length === 0) { ev.preventDefault(); return; }
+    const mode = sel.length === 2 ? 'both' : sel[0];
+    const key = 'url' + mode.charAt(0).toUpperCase() + mode.slice(1);
+    form.action = modal.dataset[key] || form.dataset.fallback;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Creating…';
   });
 })();

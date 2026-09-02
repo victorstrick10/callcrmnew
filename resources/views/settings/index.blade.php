@@ -2,19 +2,38 @@
 
 @section('title', 'Integrations')
 @section('page_title', 'Integration Settings')
-@section('page_subtitle', 'Enter the workspace-scoped token and Workspace ID, then load folders and profiles')
+@section('page_subtitle', 'IPinfo geo token and Multilogin automation — Calendly is configured per company')
 
 @section('content')
 @php
   $discovery = $multilogin['discovery_cache'] ?? [];
   $simOn = in_array(strtolower((string)($multilogin['simulation_mode'] ?? 'true')), ['true','1','yes','on'], true);
   $strictOn = in_array(strtolower((string)($multilogin['multilogin_proxy_strict_mode'] ?? 'false')), ['true','1','yes','on'], true);
-@endphp
-<div class="notice"><strong>Multilogin setup:</strong> paste the Automation Token and click <b>Connect & Discover</b>. The CRM will load your workspace, folders, profiles/templates, and existing 001–999 numbers.</div>
 
-<div class="settings-grid">
-  <div class="panel integration-card">
-    <div class="integration-head"><div class="integration-icon ip">IP</div><div><h2>IPinfo</h2><p>Geolocation enrichment</p></div><span class="connection-dot {{ isset($rows['ipinfo']) && $rows['ipinfo']->last_test_status === 'success' ? 'online' : '' }}"></span></div>
+  $providerState = function ($provider) use ($rows) {
+    $row = $rows[$provider] ?? null;
+    $st = (string) ($row->last_test_status ?? '');
+    return $st === 'success' ? 'up' : ($st === 'error' ? 'down' : 'unknown');
+  };
+  $stateText = ['up' => 'Online', 'down' => 'Error', 'unknown' => 'Not tested'];
+@endphp
+
+<div class="tabs" role="tablist">
+  <button class="tab-btn" data-tab="ipinfo" type="button">🌐 IPinfo</button>
+  <button class="tab-btn" data-tab="multilogin" type="button">🧩 Multilogin</button>
+  <button class="tab-btn" data-tab="sync" type="button">🔄 Sync &amp; Status</button>
+</div>
+
+{{-- ============ IPinfo ============ --}}
+<div class="tab-panel" data-tab-panel="ipinfo">
+  <div class="panel integration-card wide">
+    <div class="integration-head">
+      <div class="integration-icon ip">IP</div>
+      <div><h2>IPinfo</h2><p>Geolocation enrichment token — reads each lead's city/region/ISP from its IP</p></div>
+      <span class="status-light state-{{ $providerState('ipinfo') }}" title="{{ $rows['ipinfo']->last_test_message ?? 'Not tested yet' }}">
+        <span class="dot"></span>{{ $stateText[$providerState('ipinfo')] }}
+      </span>
+    </div>
     <form method="post" action="{{ route('settings.store') }}">
       @csrf
       <input type="hidden" name="provider" value="ipinfo">
@@ -22,31 +41,26 @@
       <input type="password" name="api_token" placeholder="Leave blank to keep saved token">
       <div class="form-actions">
         <button class="btn btn-primary" type="submit">Save IPinfo</button>
-        <button class="btn btn-secondary" formaction="{{ route('settings.test', 'ipinfo') }}" formmethod="post" type="submit">Test</button>
+        <button class="btn btn-secondary" formaction="{{ route('settings.test', 'ipinfo') }}" formmethod="post" type="submit">Test connection</button>
       </div>
     </form>
+    @if (!empty($rows['ipinfo']?->last_test_message))
+    <p class="test-message state-{{ $providerState('ipinfo') }}">Last test: {{ $rows['ipinfo']->last_test_message }} <span class="muted">({{ optional($rows['ipinfo']->updated_at)->diffForHumans() }})</span></p>
+    @endif
+    <div class="notice" style="margin-top:16px">When a Calendly call arrives, the lead's geo is read automatically with this token. No manual step needed.</div>
   </div>
+</div>
 
-  <div class="panel integration-card">
-    <div class="integration-head"><div class="integration-icon cal">C</div><div><h2>Calendly</h2><p>Bookings and webhooks</p></div><span class="connection-dot {{ isset($rows['calendly']) && $rows['calendly']->last_test_status === 'success' ? 'online' : '' }}"></span></div>
-    <form method="post" action="{{ route('settings.store') }}">
-      @csrf
-      <input type="hidden" name="provider" value="calendly">
-      <label>Access token <span>{{ $masked($calendly['access_token'] ?? '') }}</span></label>
-      <input type="password" name="access_token" placeholder="Leave blank to keep saved token">
-      <label>Webhook signing key <span>{{ $masked($calendly['webhook_signing_key'] ?? '') }}</span></label>
-      <input type="password" name="webhook_signing_key" placeholder="Optional">
-      <label>Organization URI</label><input name="organization_uri" value="{{ $calendly['organization_uri'] ?? '' }}">
-      <label>Webhook URL</label><input name="webhook_url" value="{{ $calendly['webhook_url'] ?? (url('/webhooks/calendly')) }}">
-      <div class="form-actions">
-        <button class="btn btn-primary" type="submit">Save Calendly</button>
-        <button class="btn btn-secondary" formaction="{{ route('settings.test', 'calendly') }}" formmethod="post" type="submit">Test</button>
-      </div>
-    </form>
-  </div>
+{{-- ============ Multilogin ============ --}}
+<div class="tab-panel" data-tab-panel="multilogin" hidden>
+  <div class="notice"><strong>Multilogin setup:</strong> paste the Automation Token and click <b>Connect &amp; Discover</b>. The CRM will load your workspace, folders, profiles/templates, and existing 001–999 numbers. This global token is used for Profile Numbers and profile creation when a company has no token of its own.</div>
 
   <div class="panel integration-card wide">
-    <div class="integration-head"><div class="integration-icon mlx">M</div><div><h2>Multilogin Automatic Setup</h2><p>Token + Workspace ID discover folders and profiles</p></div><span class="connection-dot {{ isset($rows['multilogin']) && $rows['multilogin']->last_test_status === 'success' ? 'online' : '' }}"></span></div>
+    <div class="integration-head"><div class="integration-icon mlx">M</div><div><h2>Multilogin Automatic Setup</h2><p>Token + Workspace ID discover folders and profiles</p></div>
+      <span class="status-light state-{{ $providerState('multilogin') }}" title="{{ $rows['multilogin']->last_test_message ?? 'Not tested yet' }}">
+        <span class="dot"></span>{{ $stateText[$providerState('multilogin')] }}
+      </span>
+    </div>
 
     <form method="post" action="{{ route('settings.multilogin.connect') }}" class="connect-box">
       @csrf
@@ -60,7 +74,7 @@
         <input type="checkbox" name="simulation_mode" @checked($simOn)>
         <span class="switch"></span><div><strong>Simulation Mode</strong><small>Test discovery and creation locally without real API calls.</small></div>
       </label>
-      <button class="btn btn-primary connect-btn" type="submit">⚡ Connect & Load Folders / Profiles</button>
+      <button class="btn btn-primary connect-btn" type="submit">⚡ Connect &amp; Load Folders / Profiles</button>
     </form>
 
     @if (!empty($discovery['connected']))
@@ -182,7 +196,7 @@
         </div>
       </div>
       <div class="form-actions">
-        <button class="btn btn-primary" type="submit">Save workspace, folder IDs & template</button>
+        <button class="btn btn-primary" type="submit">Save workspace, folder IDs &amp; template</button>
         <button class="btn btn-secondary" formaction="{{ route('numbers.sync') }}" formmethod="post" type="submit">Sync profile numbers</button>
       </div>
     </form>
@@ -196,6 +210,45 @@
       </div>
       <p>The connector tests compatible API paths and remembers the first Profile Create path accepted by your deployment.</p>
     </details>
+  </div>
+</div>
+
+{{-- ============ Sync & Status ============ --}}
+<div class="tab-panel" data-tab-panel="sync" hidden>
+  <div class="panel">
+    <div class="panel-head"><div><h2>How the sync works</h2><p>End-to-end automation pipeline</p></div></div>
+    <div class="sync-flow big">
+      <span class="sync-step"><b>1</b> Calendly call arrives<small>Webhook or scheduled sync (every 15 min)</small></span>
+      <i>→</i>
+      <span class="sync-step"><b>2</b> IPinfo reads lead geo<small>City, region, ISP resolved from the lead's IP</small></span>
+      <i>→</i>
+      <span class="sync-step"><b>3</b> Build Multilogin profile<small>GEO uses a matched proxy; STATIC uses your pool</small></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div><h2>Service status</h2><p>Live connectivity for every token</p></div></div>
+    <div class="status-table">
+      @foreach ([['ipinfo','IPinfo','api_token'],['multilogin','Multilogin','automation_token']] as [$prov,$label,$tok])
+        @php $state = $providerState($prov); $row = $rows[$prov] ?? null; @endphp
+        <div class="status-row state-{{ $state }}">
+          <span class="status-light state-{{ $state }}"><span class="dot"></span>{{ $stateText[$state] }}</span>
+          <div class="status-row-main">
+            <strong>{{ $label }}</strong>
+            <small>{{ $row?->last_test_message ?: 'Not tested yet — click Test connection.' }}</small>
+          </div>
+          <span class="muted">{{ optional($row?->updated_at)->diffForHumans() ?? '—' }}</span>
+        </div>
+      @endforeach
+      <div class="status-row state-info">
+        <span class="status-light state-up"><span class="dot"></span>Per company</span>
+        <div class="status-row-main">
+          <strong>Calendly</strong>
+          <small>Configured on each company (token + org URI). Manage under <a href="{{ route('companies.index') }}">Companies</a>.</small>
+        </div>
+        <span class="muted">—</span>
+      </div>
+    </div>
   </div>
 </div>
 @endsection

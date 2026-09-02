@@ -18,14 +18,8 @@
     </div>
   </div>
   <div class="action-stack">
-    <form method="post" action="{{ route('appointments.profiles', [$appointment, 'both']) }}">
-      @csrf
-      <button class="btn btn-primary" type="submit">Create missing profiles</button>
-    </form>
-    <div class="inline-actions">
-      <form method="post" action="{{ route('appointments.profiles', [$appointment, 'geo']) }}">@csrf<button class="btn btn-secondary" type="submit">Create GEO</button></form>
-      <form method="post" action="{{ route('appointments.profiles', [$appointment, 'static']) }}">@csrf<button class="btn btn-secondary" type="submit">Create STATIC</button></form>
-    </div>
+    <button class="btn btn-primary" type="button" id="openProfileBuilder">🧩 Build browser profile</button>
+    <span class="muted" style="text-align:center;font-size:12px">Review geo, proxy &amp; names before creating</span>
   </div>
 </div>
 
@@ -152,8 +146,105 @@
       </div>
     </div>
     @empty
-    <div class="empty-card">No profiles created yet. Use the buttons above.</div>
+    <div class="empty-card">No profiles created yet. Use <strong>Build browser profile</strong> above.</div>
     @endforelse
+  </div>
+</div>
+
+{{-- ============ Advanced Profile Builder ============ --}}
+<div class="modal-backdrop" id="profileModal" hidden
+     data-ready="{{ $builder['multilogin_ready'] ? '1' : '0' }}"
+     data-url-geo="{{ route('appointments.profiles', [$appointment, 'geo']) }}"
+     data-url-static="{{ route('appointments.profiles', [$appointment, 'static']) }}"
+     data-url-both="{{ route('appointments.profiles', [$appointment, 'both']) }}">
+  <div class="modal-card builder-card" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="profileModalTitle">Build browser profile</h2>
+        <p>Review geo, proxy and profile names before anything is created on Multilogin.</p>
+      </div>
+      <button type="button" class="btn btn-secondary" id="profileModalClose">Close</button>
+    </div>
+
+    <div class="modal-body">
+      {{-- Readiness --}}
+      <div class="builder-checks">
+        <div class="check {{ ($appointment->country_code || $appointment->country) ? 'ok' : 'warn' }}">
+          <span class="dot"></span> Location {{ ($appointment->country_code || $appointment->country) ? 'known' : 'missing — run IPinfo' }}
+        </div>
+        <div class="check {{ $builder['proxy_ready'] ? 'ok' : 'warn' }}">
+          <span class="dot"></span> Proxy {{ $builder['proxy_ready'] ? 'ready' : 'not fetched (GEO needs it)' }}
+        </div>
+        <div class="check {{ $builder['multilogin_ready'] ? 'ok' : 'down' }}">
+          <span class="dot"></span> Multilogin {{ $builder['multilogin_ready'] ? 'connected' : 'no token' }}
+        </div>
+        <div class="check {{ $builder['static_proxy_count'] > 0 ? 'ok' : 'warn' }}">
+          <span class="dot"></span> Static proxies: {{ $builder['static_proxy_count'] }}
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Assigned number &amp; names</h3>
+        <div class="builder-preview">
+          <div class="preview-number">{{ $builder['preview_number_label'] }}</div>
+          <div class="preview-names">
+            <div><span>GEO profile</span><code>{{ $builder['geo_name'] ?? 'Location required' }}</code></div>
+            <div><span>STATIC profile</span><code>{{ $builder['static_name'] ?? '—' }}</code></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Location intelligence</h3>
+        <div class="detail-list">
+          <div class="detail-row"><span>City</span><strong>{{ $appointment->city ?: 'Unknown' }}</strong></div>
+          <div class="detail-row"><span>Region</span><strong>{{ $appointment->region ?: 'Unknown' }}</strong></div>
+          <div class="detail-row"><span>Country</span><strong>{{ $appointment->country ?: $appointment->country_code ?: 'Unknown' }}</strong></div>
+          <div class="detail-row"><span>Client ISP</span><strong>{{ $appointment->client_isp ?: $appointment->client_org ?: 'Unknown' }}</strong></div>
+        </div>
+        <form method="post" action="{{ route('appointments.enrich', $appointment) }}" style="margin-top:12px">
+          @csrf
+          <button class="btn btn-secondary" type="submit">↻ Re-run IPinfo</button>
+        </form>
+      </div>
+
+      <div class="modal-section">
+        <h3>Select profiles to create</h3>
+        <div class="builder-roles">
+          <label class="role-select {{ (!$builder['geo_eligible'] || $builder['geo_exists']) ? 'is-disabled' : '' }}">
+            <input type="checkbox" class="role-check" value="geo"
+              @if($builder['geo_eligible'] && !$builder['geo_exists']) checked @else disabled @endif>
+            <div>
+              <strong>GEO profile</strong>
+              <small>
+                @if($builder['geo_exists']) Already created
+                @elseif(!$builder['geo_eligible']) Needs a known country (run IPinfo)
+                @else Matched residential proxy for the lead's location @endif
+              </small>
+            </div>
+          </label>
+          <label class="role-select {{ $builder['static_exists'] ? 'is-disabled' : '' }}">
+            <input type="checkbox" class="role-check" value="static"
+              @if(!$builder['static_exists']) checked @else disabled @endif>
+            <div>
+              <strong>STATIC profile</strong>
+              <small>@if($builder['static_exists']) Already created @else Uses a proxy from your static pool @endif</small>
+            </div>
+          </label>
+        </div>
+        @unless($builder['multilogin_ready'])
+        <div class="error-box">No Multilogin token. Add one on the company or in Integrations → Multilogin.</div>
+        @endunless
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button type="button" class="btn btn-secondary" id="profileModalCancel">Cancel</button>
+      <form method="post" id="profileCreateForm" data-fallback="{{ route('appointments.profiles', [$appointment, 'both']) }}">
+        @csrf
+        <button type="submit" class="btn btn-primary" id="profileConfirm" @unless($builder['multilogin_ready']) disabled @endunless>Create selected profiles</button>
+      </form>
+    </div>
   </div>
 </div>
 @endsection
