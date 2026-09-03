@@ -7,6 +7,7 @@ use App\Http\Controllers\CalendlyWebhookController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\OutcomeController;
 use App\Http\Controllers\ProfileNumberController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaticProxyController;
@@ -29,6 +30,10 @@ Route::post('/appointments/{appointment}/proxy/select/{candidateId}', [Appointme
 Route::post('/appointments/{appointment}/profiles/{mode}', [AppointmentController::class, 'createProfiles'])->name('appointments.profiles');
 
 Route::post('/browser-profiles/{browserProfile}/retry', [BrowserProfileController::class, 'retry'])->name('browser-profiles.retry');
+
+Route::get('/outcomes', [OutcomeController::class, 'index'])->name('outcomes.index');
+Route::put('/outcomes/{appointment}', [OutcomeController::class, 'update'])->name('outcomes.update');
+Route::post('/browser-profiles/{browserProfile}/keep', [OutcomeController::class, 'keepProfile'])->name('outcomes.keep-profile');
 
 Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
 Route::get('/clients/export', [ClientController::class, 'export'])->name('clients.export');

@@ -16,6 +16,11 @@ class BrowserProfile extends Model
         'proxy_label',
         'status',
         'error_message',
+        'is_kept',
+    ];
+
+    protected $casts = [
+        'is_kept' => 'boolean',
     ];
 
     public function appointment(): BelongsTo

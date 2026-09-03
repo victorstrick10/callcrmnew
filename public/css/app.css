@@ -261,6 +261,25 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .clients-table .col-geo .geo-lines span{font-weight:600}
 .clients-table th small{font-weight:600;color:#aab2c4;text-transform:none;letter-spacing:0}
 
+/* Call Outcomes board */
+.outcomes-table{width:100%;border-collapse:collapse}
+.outcomes-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#8a93a6;padding:8px 10px;border-bottom:1px solid var(--line)}
+.outcomes-table td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.outcomes-table .col-lead strong{font-weight:800;font-size:13px;display:block}
+.outcomes-table .col-lead small{color:var(--muted)}
+.outcomes-table .col-b small{display:block;color:var(--muted);font-size:11px}
+.outcome-select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:600}
+.oc-note{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;min-width:180px}
+.btn-sm{padding:8px 14px;font-size:13px}
+.oc-browsers{display:flex;flex-wrap:wrap;gap:6px}
+.oc-browser{display:inline-flex;align-items:center;gap:6px;background:#eef1f6;border:1px solid var(--line);border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700}
+.oc-browser.kept{background:rgba(22,163,106,.12);border-color:rgba(22,163,106,.45);color:#0f7a4f}
+.keep-star{border:0;background:transparent;cursor:pointer;font-size:15px;line-height:1;color:#b9c0cf;padding:0}
+.keep-star.on{color:#f5b301}
+.oc-row.oc-no_show{background:rgba(220,63,81,.045)}
+.oc-row.oc-closed_won{background:rgba(22,163,106,.06)}
+.oc-row.oc-rescheduled{background:rgba(91,92,240,.045)}
+
 /* Lead source badge */
 .src-badge{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border:1px solid var(--line)}
 .src-badge.src-lead{background:#eef1f6;color:#3a4763}

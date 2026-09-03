@@ -55,6 +55,9 @@ class Appointment extends Model
         'proxy_candidates_json',
         'geo_json',
         'geo_enriched_at',
+        'outcome',
+        'outcome_note',
+        'outcome_at',
     ];
 
     protected $casts = [
@@ -64,10 +67,28 @@ class Appointment extends Model
         'proxy_candidates_json' => 'array',
         'geo_json' => 'array',
         'geo_enriched_at' => 'datetime',
+        'outcome_at' => 'datetime',
         'latitude' => 'float',
         'longitude' => 'float',
         'proxy_port' => 'integer',
     ];
+
+    /** Call outcome options: key => human label. */
+    public const OUTCOMES = [
+        'pending' => 'Pending',
+        'joined' => 'Joined',
+        'no_show' => "No-show (didn't join)",
+        'rescheduled' => 'Rescheduled',
+        'left_early' => 'Left the call',
+        'closed_won' => 'Deal closed (won)',
+        'closed_lost' => 'Deal lost',
+        'callback' => 'Callback / follow-up',
+    ];
+
+    public function outcomeLabel(): string
+    {
+        return self::OUTCOMES[$this->outcome] ?? 'Pending';
+    }
 
     public function company(): BelongsTo
     {

@@ -8,6 +8,7 @@
     <a class="{{ request()->routeIs('clients.*') || request()->routeIs('appointments.*') ? 'active' : '' }}" href="{{ route('clients.index') }}">◎ <span>Clients</span></a>
     <a class="{{ request()->routeIs('numbers.*') ? 'active' : '' }}" href="{{ route('numbers.index') }}"># <span>Profile Numbers</span></a>
     <a class="{{ request()->routeIs('static-proxies.*') ? 'active' : '' }}" href="{{ route('static-proxies.index') }}">⌥ <span>Static Proxies</span></a>
+    <a class="{{ request()->routeIs('outcomes.*') ? 'active' : '' }}" href="{{ route('outcomes.index') }}">✎ <span>Call Outcomes</span></a>
     <div class="nav-label">System</div>
     <a class="{{ request()->routeIs('companies.*') ? 'active' : '' }}" href="{{ route('companies.index') }}">▣ <span>Companies</span></a>
     <a class="{{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">⚙ <span>Integrations</span></a>
