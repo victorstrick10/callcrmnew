@@ -32,6 +32,7 @@ Route::post('/appointments/{appointment}/profiles/{mode}', [AppointmentControlle
 Route::post('/browser-profiles/{browserProfile}/retry', [BrowserProfileController::class, 'retry'])->name('browser-profiles.retry');
 
 Route::get('/outcomes', [OutcomeController::class, 'index'])->name('outcomes.index');
+Route::get('/outcomes/export', [OutcomeController::class, 'export'])->name('outcomes.export');
 Route::put('/outcomes/{appointment}', [OutcomeController::class, 'update'])->name('outcomes.update');
 Route::post('/browser-profiles/{browserProfile}/keep', [OutcomeController::class, 'keepProfile'])->name('outcomes.keep-profile');
 

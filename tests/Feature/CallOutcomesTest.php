@@ -107,6 +107,26 @@ class CallOutcomesTest extends TestCase
             ->assertSessionHasErrors('outcome_custom');
     }
 
+    public function test_csv_export_has_expected_columns_and_rows(): void
+    {
+        config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
+        Carbon::setTestNow(Carbon::parse('2026-09-10 12:00:00', 'UTC'));
+
+        $appt = $this->seedCall('2026-09-10 09:00:00');
+        $appt->update(['outcome' => 'no_show', 'outcome_note' => 'no answer, retry']);
+
+        $res = $this->get(route('outcomes.export', ['range' => 'today']));
+        $res->assertOk();
+
+        $csv = $res->streamedContent();
+        foreach (['Lead Name', 'Company', 'Call time', 'Outcome', 'Comment'] as $col) {
+            $this->assertStringContainsString($col, $csv);
+        }
+        $this->assertStringContainsString('Owen Case', $csv);
+        $this->assertStringContainsString("Didn't join", $csv);
+        $this->assertStringContainsString('no answer, retry', $csv);
+    }
+
     public function test_defaults_to_today_and_sorts_earliest_first(): void
     {
         config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);

@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OutcomeController extends Controller
 {
@@ -130,20 +131,85 @@ class OutcomeController extends Controller
             $start = $monthStart->copy()->utc();
             $end = $monthStart->copy()->addMonth()->utc();
 
-            $calls = (int) Appointment::query()->whereBetween('start_time', [$start, $end])->count();
-            $deals = (int) Appointment::query()
+            $by = Appointment::query()
                 ->whereBetween('start_time', [$start, $end])
-                ->where('outcome', Appointment::OUTCOME_DEAL)
-                ->count();
+                ->selectRaw('outcome, count(*) as c')
+                ->groupBy('outcome')
+                ->pluck('c', 'outcome');
+
+            $outcomes = [
+                'scheduled' => (int) ($by['scheduled'] ?? 0) + (int) ($by['pending'] ?? 0),
+                'joined_line' => (int) ($by['joined_line'] ?? 0),
+                'joined_vorr' => (int) ($by['joined_vorr'] ?? 0),
+                'joined_left' => (int) ($by['joined_left'] ?? 0),
+                'no_show' => (int) ($by['no_show'] ?? 0),
+                'rescheduled' => (int) ($by['rescheduled'] ?? 0),
+                'canceled' => (int) ($by['canceled'] ?? 0),
+            ];
 
             $out[] = [
                 'label' => $monthStart->format('M y'),
-                'calls' => $calls,
-                'deals' => $deals,
+                'calls' => array_sum($outcomes),
+                'deals' => $outcomes['joined_line'],
+                'outcomes' => $outcomes,
             ];
         }
 
         return $out;
+    }
+
+    /**
+     * CSV export of the calls in the current filter:
+     * Lead Name | Company | Call time (GMT+1) | Outcome | Comment.
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $from = trim((string) $request->query('from', ''));
+        $to = trim((string) $request->query('to', ''));
+
+        $rangeParam = $request->query('range');
+        if ($rangeParam !== null) {
+            $range = (string) $rangeParam;
+        } elseif ($from !== '' || $to !== '') {
+            $range = 'custom';
+        } else {
+            $range = 'today';
+        }
+        if (! in_array($range, ['today', 'this_week', 'last_week', 'all', 'custom'], true)) {
+            $range = 'today';
+        }
+
+        [$start, $end] = $this->rangeBounds($range, $from, $to);
+
+        $query = Appointment::query()->with(['contact', 'company'])->orderBy('start_time');
+        if ($start && $end) {
+            $query->whereBetween('start_time', [$start, $end]);
+        }
+        $appointments = $query->get();
+
+        $filename = 'call-stats-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($appointments) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Lead Name', 'Company', 'Call time', 'Outcome', 'Comment']);
+
+            foreach ($appointments as $a) {
+                $label = $a->hasCustomOutcome()
+                    ? $a->outcome
+                    : (Appointment::OUTCOMES[$a->effectiveOutcome()] ?? $a->effectiveOutcome());
+
+                fputcsv($out, [
+                    (string) ($a->contact?->full_name ?? ''),
+                    (string) ($a->company?->name ?? ''),
+                    $a->localStart()?->format('d.m.Y H:i') ?? '',
+                    $label,
+                    (string) $a->outcome_note,
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function update(Request $request, Appointment $appointment): RedirectResponse
