@@ -43,10 +43,18 @@
     <button class="chip-btn {{ $chip('year') }}" type="submit" name="range" value="year">Year</button>
     <button class="chip-btn {{ $chip('all') }}" type="submit" name="range" value="all">All time</button>
   </div>
-  <div class="form-grid" style="grid-template-columns:repeat(4,1fr);align-items:end;margin-top:14px">
+  <div class="form-grid" style="grid-template-columns:repeat(5,1fr);align-items:end;margin-top:14px">
     <div><label>From</label><input type="date" name="from" value="{{ $from ?? '' }}"></div>
     <div><label>To</label><input type="date" name="to" value="{{ $to ?? '' }}"></div>
     <div><label>Search calls</label><input type="search" name="q" value="{{ $search ?? '' }}" placeholder="Name, email, company…"></div>
+    <div>
+      <label>Per page</label>
+      <select name="per_page" onchange="this.form.submit()">
+        @foreach (['10' => '10', '20' => '20', '25' => '25', 'all' => 'All'] as $val => $lbl)
+          <option value="{{ $val }}" @selected(($perPage ?? '10') === $val)>{{ $lbl }}</option>
+        @endforeach
+      </select>
+    </div>
     <div class="form-actions" style="margin:0">
       <button class="btn btn-primary" type="submit">🔍 Apply</button>
       <a class="btn btn-secondary" href="{{ route('outcomes.index') }}">Reset</a>
@@ -74,7 +82,12 @@
 
 <div class="panel">
   <div class="panel-head">
-    <div><h2>Calls</h2><p>{{ $appointments->count() }} call(s) · tap an outcome icon to log it · GMT+1</p></div>
+    <div><h2>Calls</h2><p>{{ $appointments->total() }} call(s) · tap an outcome icon to log it · GMT+1</p></div>
+    <div class="oc-legend">
+      @foreach ($icons as $key => [$icon, $label])
+        <span class="oc-legend-item"><b>{{ $icon }}</b> {{ $label }}</span>
+      @endforeach
+    </div>
   </div>
   <div class="table-wrap">
     <table class="outcomes-table">
@@ -114,6 +127,7 @@
               @endforeach
               <button type="button" class="oc-icon oc-custom-toggle {{ $isCustom ? 'active' : '' }}" data-row="{{ $a->id }}" title="Custom outcome">✎</button>
             </div>
+            <span class="oc-current">{{ $labelFor($a) }}</span>
             <div class="oc-custom-wrap" id="occ-wrap-{{ $a->id }}" style="{{ $isCustom ? '' : 'display:none' }}">
               <input type="text" name="outcome_custom" form="oc-{{ $a->id }}" value="{{ $isCustom ? $a->outcome : '' }}" placeholder="Custom outcome" maxlength="30">
               <button type="submit" form="oc-{{ $a->id }}" name="outcome" value="__custom__" class="btn btn-primary btn-sm">Save</button>
@@ -128,7 +142,15 @@
             </div>
           </td>
           <td class="oc-browsers">
-            @php $profs = $a->profiles->whereIn('status', ['created', 'reserved'])->sortBy('number'); @endphp
+            @php
+              // Show the lead's saved browsers across ALL their calls, so old
+              // saved Multilogin browsers match this lead.
+              $profs = $a->contact
+                ? $a->contact->appointments->flatMap(fn ($ap) => $ap->profiles)
+                    ->whereIn('status', ['created', 'reserved'])
+                    ->unique('id')->sortBy('number')->values()
+                : $a->profiles->whereIn('status', ['created', 'reserved'])->sortBy('number');
+            @endphp
             @forelse ($profs as $p)
               <span class="oc-browser {{ $p->is_kept ? 'kept' : '' }}">
                 <span class="oc-browser-name">{{ sprintf('%03d', (int) $p->number) }} {{ strtoupper(str_replace('_', '-', $p->profile_role)) }}</span>

@@ -43,7 +43,7 @@ class OutcomeController extends Controller
         [$start, $end] = $this->rangeBounds($range, $from, $to);
 
         $query = Appointment::query()
-            ->with(['contact', 'company', 'profiles'])
+            ->with(['contact.appointments.profiles', 'company', 'profiles'])
             ->orderBy('start_time'); // earliest call first
 
         if ($start && $end) {
@@ -62,9 +62,15 @@ class OutcomeController extends Controller
             'commented' => $all->filter(fn (Appointment $a) => trim((string) $a->outcome_note) !== '')->count(),
         ];
 
-        // Paginate the visible table (25/page) so the analytics below stay
-        // reachable, while copy/summary/analytics still use the full range.
-        $perPage = 25;
+        // Paginate the visible table (default 10/page; user-selectable) so the
+        // analytics below stay reachable, while copy/summary/analytics still use
+        // the full range.
+        $perPageParam = (string) $request->query('per_page', '10');
+        if (! in_array($perPageParam, ['10', '20', '25', 'all'], true)) {
+            $perPageParam = '10';
+        }
+        $perPage = $perPageParam === 'all' ? max(1, $all->count()) : (int) $perPageParam;
+
         $page = LengthAwarePaginator::resolveCurrentPage();
         $appointments = new LengthAwarePaginator(
             $all->forPage($page, $perPage)->values(),
@@ -82,6 +88,7 @@ class OutcomeController extends Controller
             'from' => $from,
             'to' => $to,
             'search' => $search,
+            'perPage' => $perPageParam,
             'outcomes' => Appointment::OUTCOMES,
             'analytics' => $this->bucketizeCollection($all),
             'trend' => $this->trend(),
