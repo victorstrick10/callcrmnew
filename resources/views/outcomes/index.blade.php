@@ -178,6 +178,14 @@
     <div class="analytics-card wide">
       <h3>Calls &amp; deals per month <span class="muted">(hover a month for its outcome breakdown)</span></h3>
       <div class="trend-wrap"><canvas id="trendBar"></canvas></div>
+      <div class="month-totals">
+        @foreach ($trend as $m)
+          <div class="month-total {{ $m['calls'] > 0 ? 'has' : '' }}">
+            <span class="mt-label">{{ $m['label'] }}</span>
+            <b class="mt-count">📞 {{ $m['calls'] }}</b>
+          </div>
+        @endforeach
+      </div>
     </div>
   </div>
 </div>

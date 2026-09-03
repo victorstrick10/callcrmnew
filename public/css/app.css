@@ -325,6 +325,13 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .mini-gauge-count{display:block;font-size:13px;color:var(--muted)}
 @media(max-width:1000px){.outcome-gauges{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:560px){.outcome-gauges{grid-template-columns:repeat(2,1fr)}}
+.month-totals{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;margin-top:14px}
+.month-total{text-align:center;padding:8px 4px;border:1px solid var(--line);border-radius:12px;background:#fafbff}
+.month-total.has{border-color:rgba(91,92,240,.35);background:rgba(91,92,240,.05)}
+.mt-label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+.mt-count{display:block;font-size:16px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+@media(max-width:900px){.month-totals{grid-template-columns:repeat(6,1fr)}}
+@media(max-width:560px){.month-totals{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:900px){.analytics-grid{grid-template-columns:1fr 1fr}.analytics-card.wide{grid-column:1 / -1}}
 @media(max-width:560px){.analytics-grid{grid-template-columns:1fr}}
 .btn-sm{padding:8px 14px;font-size:13px}
