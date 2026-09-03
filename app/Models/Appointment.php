@@ -84,28 +84,30 @@ class Appointment extends Model
         return $this->hasMany(BrowserProfile::class);
     }
 
-    /** Start time converted to the invitee's Calendly timezone for display. */
+    /** Start time in the operator display timezone (GMT+1 / Europe/Belgrade), matching Calendly. */
     public function localStart(): ?\Illuminate\Support\Carbon
     {
-        return $this->inInviteeTz($this->start_time);
+        return $this->inDisplayTz($this->start_time);
     }
 
-    /** End time converted to the invitee's Calendly timezone for display. */
+    /** End time in the operator display timezone (GMT+1 / Europe/Belgrade). */
     public function localEnd(): ?\Illuminate\Support\Carbon
     {
-        return $this->inInviteeTz($this->end_time);
+        return $this->inDisplayTz($this->end_time);
     }
 
-    private function inInviteeTz(?\Illuminate\Support\Carbon $value): ?\Illuminate\Support\Carbon
+    /**
+     * Convert a UTC-stored time to the operator display timezone so all call
+     * times are shown in one consistent zone (GMT+1) rather than each invitee's
+     * local zone.
+     */
+    private function inDisplayTz(?\Illuminate\Support\Carbon $value): ?\Illuminate\Support\Carbon
     {
         if (! $value) {
             return null;
         }
 
-        $tz = trim((string) $this->invitee_timezone);
-        if ($tz === '') {
-            return $value;
-        }
+        $tz = config('app.display_timezone') ?: config('app.timezone');
 
         try {
             return $value->copy()->setTimezone($tz);
@@ -114,7 +116,7 @@ class Appointment extends Model
         }
     }
 
-    /** Short timezone abbreviation for the invitee (e.g. CEST), for display. */
+    /** Short timezone abbreviation for the display timezone (e.g. CEST). */
     public function inviteeTzAbbr(): string
     {
         $local = $this->localStart();
