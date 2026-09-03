@@ -1,8 +1,15 @@
 @extends('layouts.app')
 
 @section('title', 'Dashboard')
-@section('page_title', 'Command Center')
-@section('page_subtitle', 'Monitor bookings, geo enrichment, profiles, and integration health')
+@section('page_title', 'Dashboard')
+@section('page_subtitle', 'Bookings, geo enrichment, profiles & integration health')
+
+@section('top_actions')
+  <form method="post" action="{{ route('sync.all-calls') }}" class="js-progress" style="margin:0">
+    @csrf
+    <button class="btn btn-primary" type="submit" title="Sync leads + Calendly calls for all companies now">↻ Sync all calls</button>
+  </form>
+@endsection
 
 @section('content')
 @php

@@ -17,6 +17,7 @@ Route::get('/health', function () {
 });
 
 Route::post('/system/check-all', [CompanyController::class, 'runAllChecks'])->name('system.check-all');
+Route::post('/sync-all-calls', [CompanyController::class, 'syncAll'])->name('sync.all-calls');
 
 Route::get('/', DashboardController::class)->name('dashboard');
 

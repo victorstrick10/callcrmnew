@@ -10,6 +10,7 @@ use App\Services\IntegrationSettingsService;
 use App\Services\LeadSyncService;
 use App\Services\MultiloginClient;
 use App\Services\ProfileNumberService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -247,6 +248,58 @@ class CompanyController extends Controller
 
             return back()->with('danger', 'Calendly failed: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Sync leads + Calendly calls for every enabled company. Backs the
+     * dashboard "Sync all calls" button (also runs every 10 min in the
+     * background via the leads:sync scheduled command).
+     */
+    public function syncAll(
+        Request $request,
+        LeadSyncService $leads,
+        AppointmentSyncService $appointments
+    ): RedirectResponse|JsonResponse {
+        @set_time_limit(600);
+        ini_set('max_execution_time', '600');
+
+        $log = [];
+        $events = 0;
+        $created = 0;
+        $updated = 0;
+
+        foreach (Company::query()->where('enabled', true)->orderBy('name')->get() as $company) {
+            try {
+                $leadStats = $leads->syncCompany($company);
+                $log[] = "✓ {$company->name} · leads (new {$leadStats['created']}, updated {$leadStats['updated']})";
+            } catch (Throwable $e) {
+                $log[] = "✗ {$company->name} · leads: ".$e->getMessage();
+            }
+
+            if (! $company->getCalendlyApiToken()) {
+                $log[] = "• {$company->name} · Calendly skipped (no token)";
+                continue;
+            }
+
+            try {
+                $apptStats = $appointments->syncCompany($company);
+                $events += (int) ($apptStats['events'] ?? 0);
+                $created += (int) ($apptStats['created'] ?? 0);
+                $updated += (int) ($apptStats['updated'] ?? 0);
+                $log[] = "✓ {$company->name} · Calendly (".($apptStats['events'] ?? 0).' events → new '
+                    .($apptStats['created'] ?? 0).', updated '.($apptStats['updated'] ?? 0).')';
+            } catch (Throwable $e) {
+                $log[] = "✗ {$company->name} · Calendly: ".$e->getMessage();
+            }
+        }
+
+        $message = "Synced all calls: {$events} Calendly events → {$created} new, {$updated} updated.";
+
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, 'message' => $message, 'log' => $log, 'created' => []]);
+        }
+
+        return back()->with('success', $message);
     }
 
     public function sync(

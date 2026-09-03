@@ -13,7 +13,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('multilogin:refresh-tokens')->everyTenMinutes()->withoutOverlapping();
-        $schedule->command('leads:sync')->everyFifteenMinutes();
+        $schedule->command('leads:sync')->everyTenMinutes()->withoutOverlapping();
         $schedule->command('ipinfo:enrich')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('profiles:sync-numbers')->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command('proxies:check')->everyFifteenMinutes()->withoutOverlapping();
