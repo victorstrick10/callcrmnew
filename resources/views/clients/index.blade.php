@@ -200,6 +200,9 @@
             @else
               <span class="svc-status state-unknown"><span class="dot"></span>No match</span>
             @endif
+            @if ($c->display_appointment_id)
+              <button type="button" class="mini-btn ghost pp-open" data-appt="{{ $c->display_appointment_id }}" data-lead="{{ $c->full_name }}" style="margin-top:6px">⇄ Choose proxy</button>
+            @endif
           </td>
           <td>
             @if ($c->ml_proxy_ready)
@@ -276,4 +279,69 @@
     <div class="modal-body" id="leadModalBody"></div>
   </div>
 </div>
+
+<div class="modal-backdrop" id="proxyPickerModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <div>
+        <h2>⇄ Choose a proxy</h2>
+        <p id="ppLeadLabel">Pick a proxy to create a STATIC profile</p>
+      </div>
+      <button type="button" class="btn btn-secondary" id="ppClose">Close</button>
+    </div>
+    <div class="modal-body">
+      <div class="table-wrap">
+        <table class="clients-table">
+          <thead><tr><th>Provider</th><th>Country</th><th>Region</th><th>City</th><th>ISP</th><th>Live</th><th></th></tr></thead>
+          <tbody>
+          @forelse ($staticProxies as $p)
+            @php $pc = \App\Services\StaticProxyService::proxyCountryCode($p); @endphp
+            <tr>
+              <td class="col-lead"><strong>{{ ucfirst($p->provider ?: 'pool') }}</strong><small>{{ $p->label ?: $p->host }}</small></td>
+              <td>{{ \App\Support\CountryFlag::emoji($p->exit_country ?: $pc) }} {{ $p->exit_country ?: ($pc ?: '—') }}</td>
+              <td>{{ $p->exit_region ?: '—' }}</td>
+              <td>{{ $p->exit_city ?: '—' }}</td>
+              <td>{{ $p->exit_isp ?: '—' }}</td>
+              <td><span class="svc-status state-{{ $p->last_check_status === 'up' ? 'up' : 'unknown' }}"><span class="dot"></span>{{ $p->last_check_status === 'up' ? 'live' : 'unchecked' }}</span></td>
+              <td>
+                <form method="post" action="{{ route('clients.create-missing-profiles') }}" class="js-progress" style="margin:0">
+                  @csrf
+                  @foreach ($baseQuery as $k => $v)<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endforeach
+                  <input type="hidden" name="role" value="static">
+                  <input type="hidden" name="static_proxy_id" value="{{ $p->id }}">
+                  <input type="hidden" name="appointment_ids[]" class="pp-appt" value="">
+                  <button class="mini-btn strong" type="submit">Use →</button>
+                </form>
+              </td>
+            </tr>
+          @empty
+            <tr><td colspan="7" class="empty">No enabled proxies. Add some in Static Proxies, then run “Check all live”.</td></tr>
+          @endforelse
+          </tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin-top:8px">Geo comes from IPinfo checks. If Country/Region/City/ISP are empty, open <strong>Static Proxies → Check all live</strong> to populate them.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var modal = document.getElementById('proxyPickerModal');
+    if (!modal) return;
+    function open(appt, lead) {
+      modal.querySelectorAll('.pp-appt').forEach(function (i) { i.value = appt; });
+      var lbl = document.getElementById('ppLeadLabel');
+      if (lbl) lbl.textContent = 'Create a STATIC profile for ' + (lead || 'this lead') + ' with the chosen proxy';
+      modal.hidden = false;
+    }
+    function close() { modal.hidden = true; }
+    document.querySelectorAll('.pp-open').forEach(function (b) {
+      b.addEventListener('click', function () { open(b.dataset.appt, b.dataset.lead); });
+    });
+    var c = document.getElementById('ppClose');
+    if (c) c.addEventListener('click', close);
+    modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  })();
+</script>
 @endsection

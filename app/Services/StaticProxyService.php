@@ -61,6 +61,12 @@ class StaticProxyService
         }
     }
 
+    /** An enabled proxy by id, or null. */
+    public function findEnabled(int $id): ?StaticProxy
+    {
+        return StaticProxy::query()->enabled()->find($id);
+    }
+
     public function randomEnabled(): StaticProxy
     {
         $proxy = StaticProxy::query()->enabled()->inRandomOrder()->first();

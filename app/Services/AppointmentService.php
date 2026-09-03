@@ -222,7 +222,7 @@ class AppointmentService
      *                                        profile uses a proxy from that provider only.
      * @return array{created: list<string>, skipped: list<string>, failed: list<array{role: string, error: string}>}
      */
-    public function createMissingProfiles(Appointment $appointment, ?array $onlyRoles = null, ?string $staticProvider = null): array
+    public function createMissingProfiles(Appointment $appointment, ?array $onlyRoles = null, ?string $staticProvider = null, ?int $staticProxyId = null): array
     {
         $this->requireCompanyMultilogin($appointment);
         $appointment->loadMissing(['contact', 'profiles', 'company']);
@@ -263,9 +263,9 @@ class AppointmentService
             $want = array_values(array_intersect($want, $onlyRoles));
         }
 
-        // STATIC-MHop explicitly creates an additional MobileHop static profile,
-        // even when a static profile already exists for this lead.
-        if ($staticProvider && ($onlyRoles === null || in_array('static', $onlyRoles, true)) && ! in_array('static', $want, true)) {
+        // A forced static create (STATIC-MHop, or a specifically chosen proxy)
+        // adds a static profile even when one already exists for this lead.
+        if (($staticProvider || $staticProxyId) && ($onlyRoles === null || in_array('static', $onlyRoles, true)) && ! in_array('static', $want, true)) {
             $want[] = 'static';
         }
 
@@ -356,7 +356,13 @@ class AppointmentService
                 if ($role === 'geo') {
                     $mlId = $this->multiloginFor($appointment)->create_geo_profile($name, $appointment);
                 } else {
-                    if ($staticProvider) {
+                    if ($staticProxyId) {
+                        $staticProxy = $this->staticProxies->findEnabled($staticProxyId);
+                        if (! $staticProxy) {
+                            throw new RuntimeException('The selected proxy is no longer available.');
+                        }
+                        $matchLevel = $this->staticProxies->matchLevel($staticProxy, $appointment->city, $appointment->region, $cc, '');
+                    } elseif ($staticProvider) {
                         $staticProxy = $this->staticProxies->pickForProvider(
                             $staticProvider,
                             $appointment->city,

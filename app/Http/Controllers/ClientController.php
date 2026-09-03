@@ -53,10 +53,12 @@ class ClientController extends Controller
         $contacts = $this->sortContacts($contacts, $sort, $dir, (bool) ($rangeStart && $rangeEnd));
 
         $companies = Company::query()->orderBy('name')->get();
+        $staticProxies = StaticProxy::query()->enabled()->orderBy('provider')->orderBy('label')->get();
 
         return view('clients.index', compact(
             'contacts',
             'companies',
+            'staticProxies',
             'companySlug',
             'search',
             'hasCall',
@@ -137,6 +139,11 @@ class ClientController extends Controller
         $role = (string) $request->input('role', 'both');
         // 'static_mhop' = STATIC profile using a MobileHop proxy only.
         $staticProvider = $role === 'static_mhop' ? 'mobilehop' : null;
+        // A specifically chosen proxy from the picker modal.
+        $staticProxyId = (int) $request->input('static_proxy_id', 0) ?: null;
+        if ($staticProxyId) {
+            $role = 'static';
+        }
         $onlyRoles = match ($role) {
             'geo' => ['geo'],
             'static', 'static_mhop' => ['static'],
@@ -181,7 +188,7 @@ class ClientController extends Controller
             $who = $appointment->contact?->full_name ?: "Appointment #{$appointmentId}";
 
             try {
-                $result = $service->createMissingProfiles($appointment, $onlyRoles, $staticProvider);
+                $result = $service->createMissingProfiles($appointment, $onlyRoles, $staticProvider, $staticProxyId);
                 $createdGeo += in_array('geo', $result['created'], true) ? 1 : 0;
                 $createdStatic += in_array('static', $result['created'], true) ? 1 : 0;
                 $skipped += count($result['skipped']);
