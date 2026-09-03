@@ -107,6 +107,56 @@ class ProfileNumberServiceTest extends TestCase
         $this->assertSame('created', ProfileNumber::query()->where('company_id', $b->id)->where('number', 1)->value('status'));
     }
 
+    public function test_allocation_releases_stale_reservation_and_fills_lowest_free(): void
+    {
+        $company = $this->makeCompany('stale-co');
+        $svc = app(ProfileNumberService::class);
+        $svc->initializeForCompany($company->id);
+
+        $apptId = $this->makeAppointmentId('fran@example.com', $company);
+
+        // A prior FAILED attempt left number 3 reserved to this lead (no created profile).
+        ProfileNumber::query()->where('company_id', $company->id)->where('number', 3)->update([
+            'status' => 'reserved',
+            'appointment_id' => $apptId,
+            'reserved_at' => now(),
+        ]);
+        BrowserProfile::query()->create([
+            'appointment_id' => $apptId,
+            'number' => 3,
+            'profile_role' => 'geo',
+            'profile_name' => '003 Fran',
+            'status' => 'failed',
+        ]);
+
+        // 001 is free → allocation must return 001, not the stale/failed 003.
+        $this->assertSame(1, $svc->allocateNumberForAppointment($apptId));
+        // The stale reservation on 3 is released back to available.
+        $this->assertSame('available', ProfileNumber::query()->where('company_id', $company->id)->where('number', 3)->value('status'));
+        // 001 is now reserved to this lead.
+        $this->assertSame('reserved', ProfileNumber::query()->where('company_id', $company->id)->where('number', 1)->value('status'));
+    }
+
+    public function test_allocation_reuses_created_number_for_same_lead(): void
+    {
+        $company = $this->makeCompany('reuse-co');
+        $svc = app(ProfileNumberService::class);
+        $svc->initializeForCompany($company->id);
+        $apptId = $this->makeAppointmentId('joe@example.com', $company);
+
+        // A CREATED geo profile numbered 5 for this lead.
+        BrowserProfile::query()->create([
+            'appointment_id' => $apptId,
+            'number' => 5,
+            'profile_role' => 'geo',
+            'profile_name' => '005 Joe',
+            'status' => 'created',
+        ]);
+
+        // STATIC for the same lead reuses 5 (shared number), not the lowest free.
+        $this->assertSame(5, $svc->allocateNumberForAppointment($apptId));
+    }
+
     public function test_extract_number_supports_padded_three_digits(): void
     {
         $svc = app(ProfileNumberService::class);

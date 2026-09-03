@@ -122,7 +122,7 @@ class AppointmentController extends Controller
             ->unique()
             ->all();
 
-        $previewNumber = (int) ($appointment->profiles->where('number', '>', 0)->min('number') ?? 0);
+        $previewNumber = (int) ($appointment->profiles->where('status', 'created')->where('number', '>', 0)->min('number') ?? 0);
         if ($previewNumber < 1 && $company) {
             try {
                 $previewNumber = $numbers->nextNumber($company->id);

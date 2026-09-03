@@ -89,10 +89,14 @@ class ProfileNumberService
 
             $this->initializeForCompany($companyId);
 
+            // Reuse the number only when this lead already has a CREATED profile
+            // — GEO + STATIC for the same lead share one number. Failed or stale
+            // attempts must NOT lock a number.
             $existing = BrowserProfile::query()
                 ->where('appointment_id', $appointmentId)
+                ->where('status', 'created')
                 ->where('number', '>', 0)
-                ->orderBy('id')
+                ->orderBy('number')
                 ->lockForUpdate()
                 ->value('number');
 
@@ -100,10 +104,11 @@ class ProfileNumberService
                 return (int) $existing;
             }
 
+            // Reuse a pool number only if it was actually CREATED for this lead.
             $fromPool = ProfileNumber::query()
                 ->where('company_id', $companyId)
                 ->where('appointment_id', $appointmentId)
-                ->whereIn('status', ['reserved', 'created'])
+                ->where('status', 'created')
                 ->orderBy('number')
                 ->lockForUpdate()
                 ->value('number');
@@ -111,6 +116,22 @@ class ProfileNumberService
             if ($fromPool) {
                 return (int) $fromPool;
             }
+
+            // Release any stale reservation this lead is holding (from a failed or
+            // abandoned earlier attempt) so allocation fills from the lowest free
+            // number instead of jumping ahead.
+            ProfileNumber::query()
+                ->where('company_id', $companyId)
+                ->where('appointment_id', $appointmentId)
+                ->where('status', 'reserved')
+                ->update([
+                    'status' => 'available',
+                    'appointment_id' => null,
+                    'profile_type' => '',
+                    'profile_name' => '',
+                    'multilogin_profile_id' => '',
+                    'reserved_at' => null,
+                ]);
 
             $row = ProfileNumber::query()
                 ->where('company_id', $companyId)
