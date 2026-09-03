@@ -170,6 +170,42 @@ class CallOutcomesTest extends TestCase
             ->assertOk()->assertSee('miss@example.com')->assertDontSee('deal@example.com');
     }
 
+    public function test_lines_page_shows_only_closed_deals(): void
+    {
+        config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
+        Carbon::setTestNow(Carbon::parse('2026-09-10 12:00:00', 'UTC'));
+
+        $deal = $this->seedCall('2026-09-05 09:00:00', 'deal@example.com');
+        $deal->update(['outcome' => 'joined_line']);
+        $miss = $this->seedCall('2026-09-05 10:00:00', 'miss@example.com');
+        $miss->update(['outcome' => 'no_show']);
+
+        $this->get(route('outcomes.lines', ['range' => 'all']))
+            ->assertOk()
+            ->assertSee('deal@example.com')
+            ->assertDontSee('miss@example.com');
+    }
+
+    public function test_gauge_counts_lead_once_by_best_outcome(): void
+    {
+        config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
+        Carbon::setTestNow(Carbon::parse('2026-09-10 12:00:00', 'UTC'));
+
+        // Same lead: an early rescheduled call + a later closed deal.
+        $company = Company::create(['name' => 'Acme', 'slug' => 'acme-dedupe', 'enabled' => true]);
+        $contact = Contact::create(['company_id' => $company->id, 'first_name' => 'Dee', 'last_name' => 'Dupe', 'email' => 'dee@example.com']);
+        Appointment::create(['company_id' => $company->id, 'contact_id' => $contact->id, 'event_name' => 'c1', 'start_time' => Carbon::parse('2026-09-08 09:00:00', 'UTC'), 'status' => 'rescheduled', 'outcome' => 'pending']);
+        Appointment::create(['company_id' => $company->id, 'contact_id' => $contact->id, 'event_name' => 'c2', 'start_time' => Carbon::parse('2026-09-10 09:00:00', 'UTC'), 'status' => 'scheduled', 'outcome' => 'joined_line']);
+
+        // The analytics JSON should count this lead once as a deal, not also as rescheduled.
+        $html = $this->get(route('outcomes.index', ['range' => 'all']))->assertOk()->getContent();
+        $pos = strpos($html, 'window.__analytics');
+        $json = substr($html, $pos, 220);
+        // deal counted; rescheduled for the same lead suppressed → joined_line >=1, rescheduled 0 for this lead.
+        $this->assertStringContainsString('"joined_line":1', $json);
+        $this->assertStringContainsString('"rescheduled":0', $json);
+    }
+
     public function test_defaults_to_today_and_sorts_earliest_first(): void
     {
         config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);

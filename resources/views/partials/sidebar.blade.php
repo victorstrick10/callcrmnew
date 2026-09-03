@@ -6,7 +6,8 @@
   <nav>
     <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">◫ <span>Dashboard</span></a>
     <a class="{{ request()->routeIs('clients.*') || request()->routeIs('appointments.*') ? 'active' : '' }}" href="{{ route('clients.index') }}">◎ <span>Clients</span></a>
-    <a class="{{ request()->routeIs('outcomes.*') ? 'active' : '' }}" href="{{ route('outcomes.index') }}">✎ <span>Call Stats</span></a>
+    <a class="{{ request()->routeIs('outcomes.index') ? 'active' : '' }}" href="{{ route('outcomes.index') }}">✎ <span>Call Stats</span></a>
+    <a class="{{ request()->routeIs('outcomes.lines') ? 'active' : '' }}" href="{{ route('outcomes.lines') }}">🤝 <span>Lines</span></a>
     <div class="nav-label">System</div>
     <a class="{{ request()->routeIs('numbers.*') ? 'active' : '' }}" href="{{ route('numbers.index') }}"># <span>Profile Numbers</span></a>
     <a class="{{ request()->routeIs('static-proxies.*') ? 'active' : '' }}" href="{{ route('static-proxies.index') }}">⌥ <span>Static Proxies</span></a>
