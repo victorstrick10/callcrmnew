@@ -6,11 +6,12 @@
 
 @section('content')
 @php
+  $dispTz = config('app.display_timezone') ?: config('app.timezone');
   $chip = fn ($r) => ($range ?? '') === $r ? 'chip-active' : '';
   $icons = [
     'scheduled'   => ['📅', 'Scheduled'],
     'joined_line' => ['🤝', 'Joined/LINE (deal closed)'],
-    'joined_vorr' => ['💬', 'Joined/Vorr'],
+    'joined_vorr' => ['🗑️', 'Joined/Vorr'],
     'joined_left' => ['🚪', 'Joined/Left Call'],
     'no_show'     => ['❌', "Didn't join"],
     'rescheduled' => ['🔄', 'Rescheduled'],
@@ -21,12 +22,12 @@
     $eff = $a->effectiveOutcome();
     return $icons[$eff][1] ?? (\App\Models\Appointment::OUTCOMES[$eff] ?? $eff);
   };
-  $copyLines = $appointments->map(function ($a) use ($labelFor) {
+  $copyLines = $copyList->map(function ($a) use ($labelFor) {
     $time = $a->localStart()?->format('H:i') ?? '--:--';
     $note = trim((string) $a->outcome_note);
     return $time.' - '.$labelFor($a).($note !== '' ? ' - '.$note : '');
   })->implode("\n");
-  $copyDate = optional($appointments->first()?->localStart())->format('d.m.y')
+  $copyDate = optional($copyList->first()?->localStart())->format('d.m.y')
     ?: \Illuminate\Support\Carbon::now($dispTz)->format('d.m.y');
   $copyText = $copyDate."\n".$copyLines;
 @endphp
@@ -38,11 +39,12 @@
     <button class="chip-btn {{ $chip('last_week') }}" type="submit" name="range" value="last_week">Last week</button>
     <button class="chip-btn {{ $chip('all') }}" type="submit" name="range" value="all">All time</button>
   </div>
-  <div class="form-grid" style="grid-template-columns:repeat(3,1fr);align-items:end;margin-top:14px">
+  <div class="form-grid" style="grid-template-columns:repeat(4,1fr);align-items:end;margin-top:14px">
     <div><label>From</label><input type="date" name="from" value="{{ $from ?? '' }}"></div>
     <div><label>To</label><input type="date" name="to" value="{{ $to ?? '' }}"></div>
+    <div><label>Search calls</label><input type="search" name="q" value="{{ $search ?? '' }}" placeholder="Name, email, company…"></div>
     <div class="form-actions" style="margin:0">
-      <button class="btn btn-primary" type="submit">Apply dates</button>
+      <button class="btn btn-primary" type="submit">🔍 Apply</button>
       <a class="btn btn-secondary" href="{{ route('outcomes.index') }}">Reset</a>
     </div>
   </div>
@@ -58,7 +60,7 @@
 </div>
 
 @php
-  $exportQuery = array_filter(['range' => $range ?? '', 'from' => $from ?? '', 'to' => $to ?? ''], fn ($v) => $v !== '' && $v !== null);
+  $exportQuery = array_filter(['range' => $range ?? '', 'from' => $from ?? '', 'to' => $to ?? '', 'q' => $search ?? ''], fn ($v) => $v !== '' && $v !== null);
 @endphp
 <div class="form-actions" style="margin:0 0 16px">
   <button type="button" class="btn btn-primary copy-btn" data-copy="{{ $copyText }}" title="Copy: date, then each call as time - outcome - comment">⧉ Copy stats (end of day)</button>
@@ -138,11 +140,22 @@
           </td>
         </tr>
       @empty
-        <tr><td colspan="6" class="empty">No calls in this range.</td></tr>
+        <tr><td colspan="6" class="empty">No calls match this filter.</td></tr>
       @endforelse
       </tbody>
     </table>
   </div>
+  @if ($appointments->hasPages())
+    <div class="pager">
+      @if (! $appointments->onFirstPage())
+        <a class="chip-btn" href="{{ $appointments->previousPageUrl() }}">‹ Prev</a>
+      @endif
+      <span class="muted">Page {{ $appointments->currentPage() }} / {{ $appointments->lastPage() }} · {{ $appointments->total() }} calls</span>
+      @if ($appointments->hasMorePages())
+        <a class="chip-btn" href="{{ $appointments->nextPageUrl() }}">Next ›</a>
+      @endif
+    </div>
+  @endif
 </div>
 
 <div class="panel">

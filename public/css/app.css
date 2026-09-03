@@ -306,6 +306,7 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .oc-custom-wrap{display:flex;gap:6px;margin-top:6px}
 .oc-custom-wrap input{flex:1;padding:7px 10px;border:1px solid rgba(91,92,240,.45);border-radius:10px}
 .oc-note-row{display:flex;gap:6px;align-items:center}
+.pager{display:flex;align-items:center;gap:12px;justify-content:center;padding:14px 0 2px}
 
 /* Call Stats analytics */
 .analytics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}

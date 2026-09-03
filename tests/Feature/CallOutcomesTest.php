@@ -127,6 +127,20 @@ class CallOutcomesTest extends TestCase
         $this->assertStringContainsString('no answer, retry', $csv);
     }
 
+    public function test_search_finds_old_calls_across_all_dates(): void
+    {
+        config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
+        Carbon::setTestNow(Carbon::parse('2026-09-10 12:00:00', 'UTC'));
+
+        $this->seedCall('2026-07-15 09:00:00', 'olddude@example.com'); // ~2 months ago
+
+        // Default (today) view must NOT show the old call.
+        $this->get(route('outcomes.index'))->assertOk()->assertDontSee('olddude@example.com');
+
+        // Searching spans all dates and finds it.
+        $this->get(route('outcomes.index', ['q' => 'olddude']))->assertOk()->assertSee('olddude@example.com');
+    }
+
     public function test_defaults_to_today_and_sorts_earliest_first(): void
     {
         config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
