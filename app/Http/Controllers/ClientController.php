@@ -365,6 +365,12 @@ class ClientController extends Controller
                 : [];
             $contact->has_geo_profile = in_array('geo', $roles, true);
             $contact->has_static_profile = in_array('static', $roles, true);
+            // A MobileHop static profile is named "… STATIC-MH …".
+            $contact->has_static_mhop_profile = (bool) ($display
+                && $display->profiles
+                    ->whereIn('status', ['reserved', 'created'])
+                    ->where('profile_role', 'static')
+                    ->contains(fn ($p) => stripos((string) $p->profile_name, 'STATIC-MH') !== false));
 
             $contact->geo_city = trim((string) ($display?->city ?? ''));
             $contact->geo_region = trim((string) ($display?->region ?? ''));

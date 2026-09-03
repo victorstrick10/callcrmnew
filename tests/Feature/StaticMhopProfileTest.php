@@ -73,6 +73,7 @@ class StaticMhopProfileTest extends TestCase
 
         $this->assertNotNull($static, 'STATIC-MHop should create a static profile');
         $this->assertSame('mhop-ny', $static->proxy_label, 'STATIC-MHop must use a MobileHop proxy, not ProxyCheap');
+        $this->assertStringContainsString('STATIC-MH', (string) $static->profile_name, 'MobileHop static profiles must be named STATIC-MH');
     }
 
     public function test_static_mhop_creates_even_when_a_static_already_exists(): void

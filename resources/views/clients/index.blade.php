@@ -226,6 +226,7 @@
           <td class="col-profiles">
             <span class="role-chip {{ $c->has_geo_profile ? 'on' : '' }}">GEO</span>
             <span class="role-chip {{ $c->has_static_profile ? 'on' : '' }}">STATIC</span>
+            <span class="role-chip {{ $c->has_static_mhop_profile ? 'on' : '' }}">STATIC-MH</span>
           </td>
           <td>{{ $c->calls_count }}</td>
           <td>
@@ -237,7 +238,7 @@
                 <div class="mini-btn-group" role="group" aria-label="Create profile for this lead">
                   <button class="mini-btn {{ $c->has_geo_profile ? 'done' : '' }}" name="role" value="geo" type="submit" title="Create GEO profile (mobile Multilogin proxy, matches region/city/ISP)">GEO</button>
                   <button class="mini-btn {{ $c->has_static_profile ? 'done' : '' }}" name="role" value="static" type="submit" title="Create STATIC profile (best matching pool proxy)">STATIC</button>
-                  <button class="mini-btn" name="role" value="static_mhop" type="submit" title="Create STATIC profile using a MobileHop proxy only (match country/region/city, else random MobileHop)">STATIC-MHop</button>
+                  <button class="mini-btn {{ $c->has_static_mhop_profile ? 'done' : '' }}" name="role" value="static_mhop" type="submit" title="Create STATIC profile using a MobileHop proxy only (match country/region/city, else random MobileHop)">STATIC-MHop</button>
                   <button class="mini-btn strong" name="role" value="both" type="submit" title="Create both missing profiles">Both</button>
                 </div>
               </form>

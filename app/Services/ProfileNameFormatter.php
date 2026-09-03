@@ -14,9 +14,9 @@ class ProfileNameFormatter
         return $this->build($number, $fullName, $companyShort, $time, 'GEO', $countryCode, $region, $city);
     }
 
-    public function staticName(int $number, string $fullName, string $companyShort = '', ?string $time = null, ?string $countryCode = null, ?string $region = null, ?string $city = null): string
+    public function staticName(int $number, string $fullName, string $companyShort = '', ?string $time = null, ?string $countryCode = null, ?string $region = null, ?string $city = null, string $label = 'STATIC'): string
     {
-        return $this->build($number, $fullName, $companyShort, $time, 'STATIC', $countryCode, $region, $city);
+        return $this->build($number, $fullName, $companyShort, $time, $label, $countryCode, $region, $city);
     }
 
     private function build(int $number, string $fullName, string $companyShort, ?string $time, string $suffix, ?string $countryCode, ?string $region, ?string $city): string

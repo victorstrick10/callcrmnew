@@ -338,9 +338,11 @@ class AppointmentService
             $log[] = 'Number allocated for '.strtoupper($role).': '.$this->numbers->formatNumber($number).' (fresh check against Multilogin).';
 
             $fullName = $appointment->contact->full_name;
+            // MobileHop static profiles are named STATIC-MH so they're distinguishable.
+            $staticLabel = $staticProvider === 'mobilehop' ? 'STATIC-MH' : 'STATIC';
             $name = $role === 'geo'
                 ? $this->names->geo($number, $fullName, $companyShort, $nameTime, $nameCode, $nameRegion, $nameCity)
-                : $this->names->staticName($number, $fullName, $companyShort, $nameTime, $nameCode, $nameRegion, $nameCity);
+                : $this->names->staticName($number, $fullName, $companyShort, $nameTime, $nameCode, $nameRegion, $nameCity, $staticLabel);
 
             $profile = BrowserProfile::create([
                 'appointment_id' => $appointment->id,
