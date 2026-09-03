@@ -309,9 +309,11 @@ class AppointmentService
         }
 
         $company = $this->requireCompanyMultilogin($appointment);
-        $mlClient = $this->multiloginFor($appointment);
-        $mlProfiles = $mlClient->search_profiles();
-        $this->numbers->syncFromProfiles($company->id, $mlProfiles, ! $mlClient->simulation);
+
+        // Sync profile numbers for BOTH companies before allocating, so every
+        // GEO / STATIC / STATIC-MHop action reconciles the latest Multilogin
+        // inventory (created + deleted) across all companies first.
+        $this->syncNumbersForAllCompanies($log);
 
         $number = $this->numbers->allocateNumberForAppointment($appointment->id);
         $created = [];
@@ -408,6 +410,34 @@ class AppointmentService
             'failed' => $failed,
             'log' => $log,
         ];
+    }
+
+    /**
+     * Reconcile Multilogin profile numbers for every configured company. Runs
+     * before each profile-creation action so numbering is fresh across both
+     * companies. Non-destructive in simulation. Appends a line per company to
+     * the provided log. Never throws — a sync failure for one company must not
+     * block profile creation.
+     *
+     * @param  list<string>  $log
+     */
+    private function syncNumbersForAllCompanies(array &$log): void
+    {
+        foreach (Company::query()->orderBy('name')->get() as $co) {
+            if (! $this->multilogin->isConfiguredFor($co)) {
+                continue;
+            }
+
+            try {
+                $client = $this->multilogin->forCompany($co);
+                $profiles = $client->search_profiles();
+                $result = $this->numbers->syncFromProfiles($co->id, $profiles, ! $client->simulation);
+                $log[] = '↻ Synced numbers · '.$co->name.' ('.($result['numbers_marked'] ?? 0).' used, next '
+                    .$this->numbers->formatNumber($this->numbers->nextNumber($co->id)).')';
+            } catch (Throwable $e) {
+                $log[] = '↻ Number sync failed · '.$co->name.': '.$e->getMessage();
+            }
+        }
     }
 
     private function providerLabel(?string $provider): string
