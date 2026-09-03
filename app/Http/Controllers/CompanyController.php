@@ -251,13 +251,12 @@ class CompanyController extends Controller
     }
 
     /**
-     * Sync leads + Calendly calls for every enabled company. Backs the
-     * dashboard "Sync all calls" button (also runs every 10 min in the
-     * background via the leads:sync scheduled command).
+     * Sync Calendly calls only (not the Lead API) for every enabled company.
+     * Backs the dashboard "Sync all calls" button and runs on demand; the
+     * background leads:sync command keeps everything fresh every 10 min.
      */
     public function syncAll(
         Request $request,
-        LeadSyncService $leads,
         AppointmentSyncService $appointments
     ): RedirectResponse|JsonResponse {
         @set_time_limit(600);
@@ -269,13 +268,6 @@ class CompanyController extends Controller
         $updated = 0;
 
         foreach (Company::query()->where('enabled', true)->orderBy('name')->get() as $company) {
-            try {
-                $leadStats = $leads->syncCompany($company);
-                $log[] = "✓ {$company->name} · leads (new {$leadStats['created']}, updated {$leadStats['updated']})";
-            } catch (Throwable $e) {
-                $log[] = "✗ {$company->name} · leads: ".$e->getMessage();
-            }
-
             if (! $company->getCalendlyApiToken()) {
                 $log[] = "• {$company->name} · Calendly skipped (no token)";
                 continue;
@@ -293,7 +285,7 @@ class CompanyController extends Controller
             }
         }
 
-        $message = "Synced all calls: {$events} Calendly events → {$created} new, {$updated} updated.";
+        $message = "Synced Calendly calls: {$events} events → {$created} new, {$updated} updated.";
 
         if ($request->wantsJson()) {
             return response()->json(['ok' => true, 'message' => $message, 'log' => $log, 'created' => []]);
