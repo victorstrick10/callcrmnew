@@ -137,6 +137,18 @@ class ProfileNumberServiceTest extends TestCase
         $this->assertSame('reserved', ProfileNumber::query()->where('company_id', $company->id)->where('number', 1)->value('status'));
     }
 
+    public function test_allocate_next_number_is_sequential_and_never_reuses(): void
+    {
+        $company = $this->makeCompany('seq-co');
+        $svc = app(ProfileNumberService::class);
+        $apptId = $this->makeAppointmentId('seq@example.com', $company);
+
+        // Same lead's GEO then STATIC get distinct sequential numbers (001, 002, 003…).
+        $this->assertSame(1, $svc->allocateNextNumber($company->id, $apptId));
+        $this->assertSame(2, $svc->allocateNextNumber($company->id, $apptId));
+        $this->assertSame(3, $svc->allocateNextNumber($company->id, $apptId));
+    }
+
     public function test_allocation_reuses_created_number_for_same_lead(): void
     {
         $company = $this->makeCompany('reuse-co');

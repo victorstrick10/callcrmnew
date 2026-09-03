@@ -315,7 +315,6 @@ class AppointmentService
         // inventory (created + deleted) across all companies first.
         $this->syncNumbersForAllCompanies($log);
 
-        $number = $this->numbers->allocateNumberForAppointment($appointment->id);
         $created = [];
         $createdNames = [];
 
@@ -327,9 +326,11 @@ class AppointmentService
         $nameRegion = $appointment->region;
         $nameCity = $appointment->city;
 
-        $log[] = 'Number allocated: '.$this->numbers->formatNumber($number).' (fresh check against Multilogin).';
-
         foreach ($want as $role) {
+            // Each profile gets its OWN sequential number (e.g. GEO 001, STATIC 002).
+            $number = $this->numbers->allocateNextNumber((int) $company->id, $appointment->id);
+            $log[] = 'Number allocated for '.strtoupper($role).': '.$this->numbers->formatNumber($number).' (fresh check against Multilogin).';
+
             $fullName = $appointment->contact->full_name;
             $name = $role === 'geo'
                 ? $this->names->geo($number, $fullName, $companyShort, $nameTime, $nameCode, $nameRegion, $nameCity)
@@ -397,6 +398,8 @@ class AppointmentService
                 $profile->status = 'failed';
                 $profile->error_message = $exc->getMessage();
                 $profile->save();
+                // Free the number so a retry reuses it instead of skipping ahead.
+                $this->numbers->releaseNumber((int) $company->id, $number);
                 $this->audit->log('Multilogin profile creation failed', "{$name}: {$exc->getMessage()}");
                 $failed[] = ['role' => $role, 'error' => $exc->getMessage()];
                 $log[] = '✗ '.strtoupper($role).' failed: '.$exc->getMessage();

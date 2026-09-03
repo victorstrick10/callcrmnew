@@ -16,26 +16,6 @@ Route::get('/health', function () {
     return response('ok', 200);
 });
 
-// TEMPORARY read-only diagnostic (token PRESENCE + shape only, never the value).
-Route::get('/debug/mltoken-9f3a', function () {
-    return response()->json(
-        \App\Models\Company::query()->orderBy('name')->get()->map(function ($c) {
-            $tok = (string) $c->getMultiloginToken();
-            $parts = $tok === '' ? 0 : count(explode('.', $tok));
-
-            return [
-                'company' => $c->name,
-                'encrypted_column' => $c->multilogin_token_encrypted ? 'SET' : 'NULL',
-                'decrypts' => $tok !== '' ? 'OK' : 'EMPTY',
-                'looks_like_jwt' => $parts === 3 ? 'yes (3 parts)' : ($tok === '' ? 'n/a' : "no ({$parts} parts)"),
-                'token_length' => strlen($tok),
-                'ml_status' => $c->serviceState('multilogin'),
-                'ml_status_msg' => $c->serviceMessage('multilogin'),
-            ];
-        })->all()
-    );
-});
-
 Route::post('/system/check-all', [CompanyController::class, 'runAllChecks'])->name('system.check-all');
 Route::post('/sync-all-calls', [CompanyController::class, 'syncAll'])->name('sync.all-calls');
 

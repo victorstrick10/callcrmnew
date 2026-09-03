@@ -156,6 +156,40 @@ class ProfileNumberService
         });
     }
 
+    /**
+     * Allocate a fresh number: the lowest free number in the company pool,
+     * reserved to the appointment. Unlike allocateNumberForAppointment, this
+     * NEVER reuses an existing number — each profile (GEO, STATIC, …) gets its
+     * own sequential number.
+     */
+    public function allocateNextNumber(int $companyId, ?int $appointmentId = null): int
+    {
+        return DB::transaction(function () use ($companyId, $appointmentId) {
+            $this->initializeForCompany($companyId);
+
+            $row = ProfileNumber::query()
+                ->where('company_id', $companyId)
+                ->where('status', 'available')
+                ->orderBy('number')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $row) {
+                throw new RuntimeException('No available profile numbers remain between 001 and 999.');
+            }
+
+            $row->status = 'reserved';
+            $row->appointment_id = $appointmentId;
+            $row->profile_type = '';
+            $row->reserved_at = now();
+            $row->multilogin_profile_id = '';
+            $row->profile_name = '';
+            $row->save();
+
+            return (int) $row->number;
+        });
+    }
+
     public function formatNumber(int $number): string
     {
         return sprintf('%03d', $number);

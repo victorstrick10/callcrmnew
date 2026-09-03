@@ -122,8 +122,9 @@ class AppointmentController extends Controller
             ->unique()
             ->all();
 
-        $previewNumber = (int) ($appointment->profiles->where('status', 'created')->where('number', '>', 0)->min('number') ?? 0);
-        if ($previewNumber < 1 && $company) {
+        // Each profile now gets its own number, so preview the next free number.
+        $previewNumber = 0;
+        if ($company) {
             try {
                 $previewNumber = $numbers->nextNumber($company->id);
             } catch (Throwable) {
