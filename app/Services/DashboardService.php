@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\AuditLog;
 use App\Models\BrowserProfile;
 use App\Models\Company;
+use App\Models\Contact;
 use Illuminate\Support\Carbon;
 
 class DashboardService
@@ -107,6 +108,124 @@ class DashboardService
         }
 
         return ['days' => $out, 'total' => $total];
+    }
+
+    /** UTC bounds for the current calendar week (Mon 00:00 → next Mon 00:00). */
+    private function weekBoundsUtc(): array
+    {
+        $tz = $this->tz();
+        $start = Carbon::now($tz)->startOfWeek(Carbon::MONDAY);
+
+        return [$start->copy()->utc(), $start->copy()->addWeek()->utc()];
+    }
+
+    /**
+     * Call-outcome breakdown for THIS week plus derived rates and the number of
+     * "kept" deal browsers. Powers the "This week at a glance" panel.
+     */
+    public function outcomeStats(): array
+    {
+        [$start, $end] = $this->weekBoundsUtc();
+
+        $by = Appointment::query()
+            ->whereBetween('start_time', [$start, $end])
+            ->selectRaw('outcome, count(*) as c')
+            ->groupBy('outcome')
+            ->pluck('c', 'outcome');
+
+        $total = (int) $by->sum();
+        $joined = (int) ($by['joined'] ?? 0);
+        $won = (int) ($by['closed_won'] ?? 0);
+        $lost = (int) ($by['closed_lost'] ?? 0);
+        $noShow = (int) ($by['no_show'] ?? 0);
+        $rescheduled = (int) ($by['rescheduled'] ?? 0);
+        $leftEarly = (int) ($by['left_early'] ?? 0);
+
+        $attended = $joined + $won + $leftEarly;
+
+        return [
+            'total' => $total,
+            'joined' => $joined,
+            'won' => $won,
+            'lost' => $lost,
+            'no_show' => $noShow,
+            'rescheduled' => $rescheduled,
+            'left_early' => $leftEarly,
+            'kept_browsers' => (int) BrowserProfile::query()->where('is_kept', true)->count(),
+            'show_rate' => $total > 0 ? (int) round(($attended / $total) * 100) : 0,
+            'no_show_rate' => $total > 0 ? (int) round(($noShow / $total) * 100) : 0,
+            'win_rate' => ($won + $lost) > 0 ? (int) round(($won / ($won + $lost)) * 100) : 0,
+        ];
+    }
+
+    /**
+     * Lead → Call → Profile → Deal conversion funnel (all-time).
+     *
+     * @return list<array{label:string,value:int,pct:int}>
+     */
+    public function funnel(): array
+    {
+        $leads = (int) Contact::query()->count();
+        $withCalls = (int) Contact::query()->whereHas('appointments', fn ($q) => $q->where('status', 'scheduled'))->count();
+        $withProfiles = (int) Contact::query()
+            ->whereHas('appointments.profiles', fn ($q) => $q->where('status', 'created'))
+            ->count();
+        $deals = (int) Contact::query()
+            ->whereHas('appointments', fn ($q) => $q->where('outcome', 'closed_won'))
+            ->count();
+
+        $base = max(1, $leads);
+
+        return [
+            ['label' => 'Leads', 'value' => $leads, 'pct' => 100],
+            ['label' => 'Scheduled a call', 'value' => $withCalls, 'pct' => (int) round($withCalls / $base * 100)],
+            ['label' => 'Browser profile built', 'value' => $withProfiles, 'pct' => (int) round($withProfiles / $base * 100)],
+            ['label' => 'Deal won', 'value' => $deals, 'pct' => (int) round($deals / $base * 100)],
+        ];
+    }
+
+    /**
+     * Top lead countries by number of scheduled calls.
+     *
+     * @return list<array{code:string,count:int,pct:int}>
+     */
+    public function topCountries(int $limit = 6): array
+    {
+        $rows = Appointment::query()
+            ->where('status', 'scheduled')
+            ->whereNotNull('country_code')
+            ->where('country_code', '!=', '')
+            ->selectRaw('upper(country_code) as code, count(*) as c')
+            ->groupBy('code')
+            ->orderByDesc('c')
+            ->limit($limit)
+            ->get();
+
+        $max = (int) ($rows->max('c') ?: 1);
+
+        return $rows->map(fn ($r) => [
+            'code' => (string) $r->code,
+            'count' => (int) $r->c,
+            'pct' => (int) round(((int) $r->c) / $max * 100),
+        ])->all();
+    }
+
+    /**
+     * New leads created today / this week / total (display timezone).
+     *
+     * @return array{today:int,week:int,total:int}
+     */
+    public function newLeads(): array
+    {
+        $tz = $this->tz();
+        $todayStart = Carbon::now($tz)->startOfDay()->utc();
+        [$weekStart] = $this->weekBoundsUtc();
+
+        return [
+            'today' => (int) Contact::query()->where('created_at', '>=', $todayStart)->count(),
+            'week' => (int) Contact::query()->where('created_at', '>=', $weekStart)->count(),
+            'total' => (int) Contact::query()->count(),
+        ];
     }
 
     public function stats(): array

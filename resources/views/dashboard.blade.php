@@ -90,6 +90,50 @@
   <a class="stat-card danger" href="{{ route('clients.index') }}"><span>Failed</span><strong>{{ $stats['failed'] }}</strong><small>Require review</small></a>
 </div>
 
+<div class="panel">
+  <div class="panel-head">
+    <div><h2>This week at a glance</h2><p>Call outcomes &amp; conversion · this week · GMT+1</p></div>
+    <a class="text-link" href="{{ route('outcomes.index') }}">Open outcomes →</a>
+  </div>
+  <div class="glance-grid">
+    <div class="glance-tile"><span>Calls</span><strong>{{ $outcomeStats['total'] }}</strong><small>this week</small></div>
+    <div class="glance-tile good"><span>Show rate</span><strong>{{ $outcomeStats['show_rate'] }}%</strong><small>attended</small></div>
+    <div class="glance-tile bad"><span>No-show</span><strong>{{ $outcomeStats['no_show'] }}</strong><small>{{ $outcomeStats['no_show_rate'] }}% of calls</small></div>
+    <div class="glance-tile"><span>Rescheduled</span><strong>{{ $outcomeStats['rescheduled'] }}</strong><small>moved</small></div>
+    <div class="glance-tile good"><span>Deals won</span><strong>{{ $outcomeStats['won'] }}</strong><small>{{ $outcomeStats['win_rate'] }}% win rate</small></div>
+    <div class="glance-tile"><span>Kept browsers</span><strong>{{ $outcomeStats['kept_browsers'] }}</strong><small>deals saved</small></div>
+    <div class="glance-tile accent"><span>New leads</span><strong>{{ $newLeads['week'] }}</strong><small>{{ $newLeads['today'] }} today</small></div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-head"><div><h2>Conversion funnel</h2><p>Leads → calls → profiles → deals (all-time)</p></div></div>
+    <div class="funnel">
+      @foreach ($funnel as $step)
+        <div class="funnel-step">
+          <div class="funnel-track"><span style="width:{{ max(4, (int) $step['pct']) }}%"></span></div>
+          <div class="funnel-label"><strong>{{ $step['value'] }}</strong> {{ $step['label'] }} <em>{{ $step['pct'] }}%</em></div>
+        </div>
+      @endforeach
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><div><h2>Top lead countries</h2><p>By scheduled calls</p></div></div>
+    <div class="country-list">
+      @forelse ($topCountries as $c)
+        <div class="country-row">
+          <span class="country-name">{{ \App\Support\CountryFlag::emoji($c['code']) }} {{ $c['code'] }}</span>
+          <span class="country-bar"><i style="width:{{ max(4, (int) $c['pct']) }}%"></i></span>
+          <span class="country-count">{{ $c['count'] }}</span>
+        </div>
+      @empty
+        <div class="empty">No geo data yet.</div>
+      @endforelse
+    </div>
+  </div>
+</div>
+
 <div class="grid-2">
   <div class="panel">
     <div class="panel-head"><div><h2>Pending browser profiles</h2><p>Today · {{ \Illuminate\Support\Carbon::now($dispTz)->format('D d.m.Y') }} · both companies</p></div><a class="text-link" href="{{ route('clients.index', ['schedule' => 'today']) }}">Today’s clients</a></div>
