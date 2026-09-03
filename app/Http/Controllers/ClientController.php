@@ -249,6 +249,32 @@ class ClientController extends Controller
     }
 
     /**
+     * Assign a specific proxy to a lead's call. Does NOT create a profile — the
+     * STATIC action button uses the assigned proxy when creating.
+     */
+    public function assignProxy(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'appointment_id' => ['required', 'integer'],
+            'static_proxy_id' => ['required', 'integer'],
+        ]);
+
+        $appointment = Appointment::query()->find((int) $data['appointment_id']);
+        $proxy = app(StaticProxyService::class)->findEnabled((int) $data['static_proxy_id']);
+
+        if (! $appointment || ! $proxy) {
+            return back()->with('danger', 'Lead or proxy not found.');
+        }
+
+        $appointment->chosen_static_proxy_id = $proxy->id;
+        $appointment->save();
+
+        $label = $proxy->label ?: $proxy->host;
+
+        return back()->with('success', "Proxy “{$label}” assigned to this lead. Click STATIC to create the profile with it.");
+    }
+
+    /**
      * Best location match among enabled static proxies (prefers mobile).
      *
      * @param  \Illuminate\Support\Collection<int, StaticProxy>  $proxies
@@ -372,6 +398,13 @@ class ClientController extends Controller
                 : [];
             $contact->has_geo_profile = in_array('geo', $roles, true);
             $contact->has_static_profile = in_array('static', $roles, true);
+
+            // A proxy explicitly assigned to this call via the picker.
+            $contact->chosen_proxy_label = '';
+            if ($display && $display->chosen_static_proxy_id) {
+                $cp = $enabledProxies->firstWhere('id', (int) $display->chosen_static_proxy_id);
+                $contact->chosen_proxy_label = $cp ? (string) ($cp->label ?: $cp->host) : '';
+            }
             // A MobileHop static profile is named "… STATIC-MH …".
             $contact->has_static_mhop_profile = (bool) ($display
                 && $display->profiles

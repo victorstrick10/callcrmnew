@@ -356,8 +356,10 @@ class AppointmentService
                 if ($role === 'geo') {
                     $mlId = $this->multiloginFor($appointment)->create_geo_profile($name, $appointment);
                 } else {
-                    if ($staticProxyId) {
-                        $staticProxy = $this->staticProxies->findEnabled($staticProxyId);
+                    // A proxy chosen in the picker (passed now, or previously assigned to the lead) wins.
+                    $chosenId = $staticProxyId ?: ((int) $appointment->chosen_static_proxy_id ?: null);
+                    if ($chosenId) {
+                        $staticProxy = $this->staticProxies->findEnabled($chosenId);
                         if (! $staticProxy) {
                             throw new RuntimeException('The selected proxy is no longer available.');
                         }

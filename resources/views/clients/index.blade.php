@@ -200,6 +200,9 @@
             @else
               <span class="svc-status state-unknown"><span class="dot"></span>No match</span>
             @endif
+            @if ($c->chosen_proxy_label)
+              <div class="chosen-proxy"><b>Chosen</b> {{ $c->chosen_proxy_label }}</div>
+            @endif
             @if ($c->display_appointment_id)
               <button type="button" class="mini-btn ghost pp-open" data-appt="{{ $c->display_appointment_id }}" data-lead="{{ $c->full_name }}" style="margin-top:6px">⇄ Choose proxy</button>
             @endif
@@ -290,13 +293,18 @@
       <button type="button" class="btn btn-secondary" id="ppClose">Close</button>
     </div>
     <div class="modal-body">
+      <div class="quick-chips" id="ppProviderFilter" style="margin-bottom:12px">
+        <button type="button" class="chip-btn chip-active" data-provider="">All</button>
+        <button type="button" class="chip-btn" data-provider="proxycheap">ProxyCheap</button>
+        <button type="button" class="chip-btn" data-provider="mobilehop">MobileHop</button>
+      </div>
       <div class="table-wrap">
         <table class="clients-table">
           <thead><tr><th>Provider</th><th>Country</th><th>Region</th><th>City</th><th>ISP</th><th>Live</th><th></th></tr></thead>
           <tbody>
           @forelse ($staticProxies as $p)
             @php $pc = \App\Services\StaticProxyService::proxyCountryCode($p); @endphp
-            <tr>
+            <tr class="pp-row" data-provider="{{ $p->provider }}">
               <td class="col-lead"><strong>{{ ucfirst($p->provider ?: 'pool') }}</strong><small>{{ $p->label ?: $p->host }}</small></td>
               <td>{{ \App\Support\CountryFlag::emoji($p->exit_country ?: $pc) }} {{ $p->exit_country ?: ($pc ?: '—') }}</td>
               <td>{{ $p->exit_region ?: '—' }}</td>
@@ -304,13 +312,11 @@
               <td>{{ $p->exit_isp ?: '—' }}</td>
               <td><span class="svc-status state-{{ $p->last_check_status === 'up' ? 'up' : 'unknown' }}"><span class="dot"></span>{{ $p->last_check_status === 'up' ? 'live' : 'unchecked' }}</span></td>
               <td>
-                <form method="post" action="{{ route('clients.create-missing-profiles') }}" class="js-progress" style="margin:0">
+                <form method="post" action="{{ route('clients.assign-proxy') }}" style="margin:0">
                   @csrf
-                  @foreach ($baseQuery as $k => $v)<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endforeach
-                  <input type="hidden" name="role" value="static">
                   <input type="hidden" name="static_proxy_id" value="{{ $p->id }}">
-                  <input type="hidden" name="appointment_ids[]" class="pp-appt" value="">
-                  <button class="mini-btn strong" type="submit">Use →</button>
+                  <input type="hidden" name="appointment_id" class="pp-appt" value="">
+                  <button class="mini-btn strong" type="submit">Select</button>
                 </form>
               </td>
             </tr>
@@ -320,7 +326,7 @@
           </tbody>
         </table>
       </div>
-      <p class="muted" style="margin-top:8px">Geo comes from IPinfo checks. If Country/Region/City/ISP are empty, open <strong>Static Proxies → Check all live</strong> to populate them.</p>
+      <p class="muted" style="margin-top:8px">Selecting a proxy <strong>assigns</strong> it to the lead — then click <strong>STATIC</strong> to create the profile with it. Geo comes from IPinfo checks; if empty, run <strong>Static Proxies → Check all live</strong>.</p>
     </div>
   </div>
 </div>
@@ -342,6 +348,18 @@
     var c = document.getElementById('ppClose');
     if (c) c.addEventListener('click', close);
     modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+
+    // Provider filter (All / ProxyCheap / MobileHop).
+    document.querySelectorAll('#ppProviderFilter .chip-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('#ppProviderFilter .chip-btn').forEach(function (x) { x.classList.remove('chip-active'); });
+        b.classList.add('chip-active');
+        var prov = b.dataset.provider || '';
+        modal.querySelectorAll('.pp-row').forEach(function (r) {
+          r.style.display = (! prov || r.dataset.provider === prov) ? '' : 'none';
+        });
+      });
+    });
   })();
 </script>
 @endsection

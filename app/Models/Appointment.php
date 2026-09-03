@@ -58,6 +58,7 @@ class Appointment extends Model
         'outcome',
         'outcome_note',
         'outcome_at',
+        'chosen_static_proxy_id',
     ];
 
     protected $casts = [

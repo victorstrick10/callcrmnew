@@ -113,6 +113,46 @@ class StaticMhopProfileTest extends TestCase
         $this->assertSame('chosen-pc', $static->proxy_label, 'The explicitly chosen proxy must be used');
     }
 
+    public function test_assigning_a_proxy_then_creating_static_uses_it(): void
+    {
+        $this->bootMultiloginSimulation();
+
+        $company = Company::create(['name' => 'Acme', 'slug' => 'acme', 'enabled' => true]);
+        $company->setMultiloginToken('company-token');
+        $company->save();
+
+        StaticProxy::create([
+            'label' => 'auto-match', 'host' => 'ny.mhop.com', 'port' => 1, 'enabled' => true, 'protocol' => 'http',
+            'provider' => 'mobilehop', 'network_type' => 'mobile',
+            'exit_country' => 'US', 'exit_region' => 'New York', 'exit_city' => 'New York', 'last_check_status' => 'up',
+        ]);
+        $chosen = StaticProxy::create([
+            'label' => 'chosen-assign', 'host' => 'pc.com', 'port' => 2, 'enabled' => true, 'protocol' => 'http',
+            'provider' => 'proxycheap', 'network_type' => 'mobile', 'exit_country' => 'GB', 'last_check_status' => 'up',
+        ]);
+
+        $contact = Contact::create(['company_id' => $company->id, 'first_name' => 'As', 'last_name' => 'Sign', 'email' => 'assign@example.com']);
+        $appointment = Appointment::create([
+            'company_id' => $company->id, 'contact_id' => $contact->id, 'event_name' => 'Call',
+            'start_time' => now(), 'status' => 'scheduled',
+            'city' => 'New York', 'region' => 'New York', 'country' => 'US', 'country_code' => 'US',
+        ]);
+
+        // Assign the proxy (no profile creation yet).
+        $this->post(route('clients.assign-proxy'), ['appointment_id' => $appointment->id, 'static_proxy_id' => $chosen->id])
+            ->assertRedirect();
+        $this->assertSame($chosen->id, (int) $appointment->fresh()->chosen_static_proxy_id);
+        $this->assertSame(0, BrowserProfile::query()->where('appointment_id', $appointment->id)->count(), 'Assigning must not create a profile');
+
+        // Now the STATIC action creates using the assigned proxy.
+        $this->post(route('clients.create-missing-profiles'), ['appointment_ids' => [$appointment->id], 'role' => 'static'])
+            ->assertRedirect();
+
+        $static = BrowserProfile::query()->where('appointment_id', $appointment->id)->where('profile_role', 'static')->where('status', 'created')->first();
+        $this->assertNotNull($static);
+        $this->assertSame('chosen-assign', $static->proxy_label);
+    }
+
     public function test_static_mhop_creates_even_when_a_static_already_exists(): void
     {
         $this->bootMultiloginSimulation();
