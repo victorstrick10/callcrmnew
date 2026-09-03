@@ -127,7 +127,45 @@ class MultiloginClient
         // Cloud API calls must never hit a local launcher / bad host.
         $client->base_url = self::sanitizeApiBaseUrl($client->base_url);
 
+        // Self-heal: if the token is missing/expired/near-expiry and the company
+        // has saved credentials, sign in now and persist a fresh token so every
+        // Multilogin operation always uses a live token.
+        $client->ensureFreshToken($company);
+
         return $client;
+    }
+
+    /**
+     * Ensure this client holds a live token. Multilogin sign-in tokens last only
+     * 30 minutes, so when the current token is empty or within 10 minutes of
+     * expiry (and the company has saved credentials), sign in and persist a fresh
+     * one. Best-effort and never throws.
+     */
+    public function ensureFreshToken(?\App\Models\Company $company): void
+    {
+        if ($this->simulation || ! $company || ! $company->hasMultiloginCredentials()) {
+            return;
+        }
+
+        $secondsLeft = $this->tokenSecondsLeft();
+        $needFresh = $this->token === '' || ($secondsLeft !== null && $secondsLeft < 600);
+        if (! $needFresh) {
+            return;
+        }
+
+        try {
+            $new = (new self('', $this->base_url, $this->settings, $this->audit, $this->profileNumbers))
+                ->signin((string) $company->getMultiloginEmail(), (string) $company->getMultiloginPassword());
+
+            if (is_string($new) && strlen($new) > 40 && substr_count($new, '.') === 2) {
+                $company->setMultiloginToken($new);
+                $company->save();
+                $company->setServiceStatus('multilogin', true, 'Token auto-refreshed on use.');
+                $this->token = $new;
+            }
+        } catch (\Throwable) {
+            // Keep the existing token; the scheduled job will retry.
+        }
     }
 
     /**
