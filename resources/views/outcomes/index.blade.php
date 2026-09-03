@@ -207,7 +207,7 @@
     <div class="analytics-card">
       <h3>Show rate</h3>
       <div class="gauge-wrap"><canvas id="gaugeShow"></canvas><div class="gauge-center" id="gaugeShowVal">0%</div></div>
-      <small class="muted">attended / total</small>
+      <small class="muted">attended / held (excl. resched &amp; cancel)</small>
     </div>
     <div class="analytics-card wide">
       <h3>Outcomes — share of total</h3>

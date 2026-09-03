@@ -107,23 +107,37 @@ class OutcomeController extends Controller
     private function bucketizeCollection($items): array
     {
         $b = ['scheduled' => 0, 'joined_line' => 0, 'joined_vorr' => 0, 'joined_left' => 0, 'no_show' => 0, 'rescheduled' => 0, 'canceled' => 0];
-        $total = 0;
 
+        // Count each LEAD once, by their best/final outcome — so a lead who was
+        // rescheduled/canceled and then closed counts only as the deal (not also
+        // as rescheduled/canceled).
+        $byLead = [];
         foreach ($items as $a) {
-            $total++;
+            $key = $a->contact_id ?: ('a'.$a->id);
             $eff = $this->effectiveKey((string) $a->outcome, (string) $a->status);
+            $rank = $this->outcomeRank($eff);
+            if (! isset($byLead[$key]) || $rank > $byLead[$key][1]) {
+                $byLead[$key] = [$eff, $rank];
+            }
+        }
+
+        $total = 0;
+        foreach ($byLead as [$eff]) {
+            $total++;
             if (isset($b[$eff])) {
                 $b[$eff]++;
             }
         }
 
         $attended = $b['joined_line'] + $b['joined_vorr'] + $b['joined_left'];
+        $held = $attended + $b['no_show'];
         $won = $b['joined_line'];
 
         return [
             'counts' => $b,
             'total' => $total,
-            'show_rate' => $total > 0 ? (int) round($attended / $total * 100) : 0,
+            'held' => $held,
+            'show_rate' => $held > 0 ? (int) round($attended / $held * 100) : 0,
             'win_rate' => $attended > 0 ? (int) round($won / $attended * 100) : 0,
             'deals' => $won,
         ];
@@ -150,16 +164,36 @@ class OutcomeController extends Controller
             }
         }
 
+        // "Held" calls = ones that actually happened or were missed; reschedules,
+        // cancels and still-upcoming scheduled calls are excluded so they don't
+        // distort the show rate.
         $attended = $b['joined_line'] + $b['joined_vorr'] + $b['joined_left'];
+        $held = $attended + $b['no_show'];
         $won = $b['joined_line'];
 
         return [
             'counts' => $b,
             'total' => $total,
-            'show_rate' => $total > 0 ? (int) round($attended / $total * 100) : 0,
+            'held' => $held,
+            'show_rate' => $held > 0 ? (int) round($attended / $held * 100) : 0,
             'win_rate' => $attended > 0 ? (int) round($won / $attended * 100) : 0,
             'deals' => $won,
         ];
+    }
+
+    /** Priority for picking a lead's single representative outcome (higher wins). */
+    private function outcomeRank(string $eff): int
+    {
+        return match ($eff) {
+            'joined_line' => 100,
+            'joined_vorr' => 90,
+            'joined_left' => 85,
+            'no_show' => 80,
+            'scheduled' => 30,
+            'rescheduled' => 20,
+            'canceled' => 10,
+            default => 70, // custom logged outcome
+        };
     }
 
     /** Effective outcome bucket key: logged outcome, else derived from status. */
@@ -208,6 +242,80 @@ class OutcomeController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * "Lines" — a focused dashboard of closed deals (Joined/LINE) with month
+     * filters, totals, and a 12-month deals trend.
+     */
+    public function lines(Request $request): View
+    {
+        $from = trim((string) $request->query('from', ''));
+        $to = trim((string) $request->query('to', ''));
+        $search = trim((string) $request->query('q', ''));
+
+        $rangeParam = $request->query('range');
+        if ($rangeParam !== null) {
+            $range = (string) $rangeParam;
+        } elseif ($from !== '' || $to !== '') {
+            $range = 'custom';
+        } else {
+            $range = 'year';
+        }
+        if (! in_array($range, ['today', 'this_week', 'last_week', 'month', 'q3', 'q6', 'year', 'all', 'custom'], true)) {
+            $range = 'year';
+        }
+
+        [$start, $end] = $this->rangeBounds($range, $from, $to);
+
+        $query = Appointment::query()
+            ->with(['contact.appointments.profiles', 'company'])
+            ->where('outcome', Appointment::OUTCOME_DEAL)
+            ->orderByDesc('start_time');
+        if ($start && $end) {
+            $query->whereBetween('start_time', [$start, $end]);
+        }
+        $this->applySearch($query, $search);
+
+        $all = $query->get();
+
+        $tz = config('app.display_timezone') ?: config('app.timezone');
+        $monthStart = Carbon::now($tz)->startOfMonth()->utc();
+        $yearStart = Carbon::now($tz)->startOfYear()->utc();
+        $base = fn () => Appointment::query()->where('outcome', Appointment::OUTCOME_DEAL);
+
+        $totals = [
+            'range' => $all->count(),
+            'month' => (int) $base()->where('start_time', '>=', $monthStart)->count(),
+            'year' => (int) $base()->where('start_time', '>=', $yearStart)->count(),
+            'all' => (int) $base()->count(),
+        ];
+
+        $perPageParam = (string) $request->query('per_page', '25');
+        if (! in_array($perPageParam, ['10', '20', '25', 'all'], true)) {
+            $perPageParam = '25';
+        }
+        $perPage = $perPageParam === 'all' ? max(1, $all->count()) : (int) $perPageParam;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $deals = new LengthAwarePaginator(
+            $all->forPage($page, $perPage)->values(),
+            $all->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return view('outcomes.lines', [
+            'deals' => $deals,
+            'copyList' => $all,
+            'totals' => $totals,
+            'trend' => $this->trend(),
+            'range' => $range,
+            'from' => $from,
+            'to' => $to,
+            'search' => $search,
+            'perPage' => $perPageParam,
+        ]);
     }
 
     /**
