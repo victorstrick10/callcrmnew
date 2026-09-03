@@ -298,6 +298,11 @@ class AppointmentSyncService
 
         $isNew = ! $appointment->exists;
         $status = (($event['status'] ?? '') === 'canceled') ? 'canceled' : 'scheduled';
+        // A canceled Calendly event whose invitee rescheduled is a reschedule,
+        // not a plain cancellation.
+        if ($status === 'canceled' && is_array($invitee) && ! empty($invitee['rescheduled'])) {
+            $status = 'rescheduled';
+        }
 
         $appointment->fill([
             'company_id' => $company->id,

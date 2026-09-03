@@ -76,14 +76,41 @@ class Appointment extends Model
     /** Call outcome options: key => human label. */
     public const OUTCOMES = [
         'pending' => 'Pending',
+        'scheduled' => 'Scheduled',
         'joined' => 'Joined',
         'no_show' => "No-show (didn't join)",
         'rescheduled' => 'Rescheduled',
+        'canceled' => 'Canceled',
         'left_early' => 'Left the call',
         'closed_won' => 'Deal closed (won)',
         'closed_lost' => 'Deal lost',
         'callback' => 'Callback / follow-up',
     ];
+
+    /**
+     * The outcome to show by default. When no outcome has been logged yet, fall
+     * back to the Calendly call status (scheduled/canceled) so the dropdown is
+     * auto-filled from the call's status instead of a bare "Pending".
+     */
+    public function effectiveOutcome(): string
+    {
+        if ($this->hasCustomOutcome()) {
+            return $this->outcome;
+        }
+
+        if (! in_array($this->outcome, ['', 'pending'], true)) {
+            return (string) $this->outcome;
+        }
+
+        // Auto-fill from the call status: scheduled→Scheduled, canceled→Canceled,
+        // rescheduled→Rescheduled (any status that matches an outcome key).
+        $status = (string) $this->status;
+        if (array_key_exists($status, self::OUTCOMES)) {
+            return $status;
+        }
+
+        return $status === 'canceled' ? 'canceled' : 'scheduled';
+    }
 
     public function outcomeLabel(): string
     {

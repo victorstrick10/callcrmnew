@@ -71,10 +71,10 @@
           </td>
           <td>
             <form method="post" action="{{ route('outcomes.update', $a) }}" id="oc-{{ $a->id }}">@csrf @method('PUT')</form>
-            @php $isCustom = $a->hasCustomOutcome(); @endphp
+            @php $isCustom = $a->hasCustomOutcome(); $eff = $a->effectiveOutcome(); @endphp
             <select name="outcome" form="oc-{{ $a->id }}" class="outcome-select js-outcome-select" data-row="{{ $a->id }}">
               @foreach ($outcomes as $key => $label)
-                <option value="{{ $key }}" @selected(! $isCustom && $a->outcome === $key)>{{ $label }}</option>
+                <option value="{{ $key }}" @selected(! $isCustom && $eff === $key)>{{ $label }}</option>
               @endforeach
               <option value="__custom__" @selected($isCustom)>✎ Custom…</option>
             </select>
