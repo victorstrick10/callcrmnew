@@ -77,7 +77,6 @@ class Appointment extends Model
     public const OUTCOMES = [
         'pending' => 'Pending',
         'scheduled' => 'Scheduled',
-        'joined' => 'Joined',
         'joined_line' => 'Joined/LINE (deal closed)',
         'joined_vorr' => 'Joined/Vorr',
         'joined_left' => 'Joined/Left Call',
@@ -90,7 +89,7 @@ class Appointment extends Model
     public const OUTCOME_DEAL = 'joined_line';
 
     /** Outcomes that mean the invitee attended the call. */
-    public const OUTCOMES_ATTENDED = ['joined', 'joined_line', 'joined_vorr', 'joined_left'];
+    public const OUTCOMES_ATTENDED = ['joined_line', 'joined_vorr', 'joined_left'];
 
     /**
      * The outcome to show by default. When no outcome has been logged yet, fall

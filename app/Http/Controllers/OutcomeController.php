@@ -48,10 +48,10 @@ class OutcomeController extends Controller
 
         $summary = [
             'total' => $appointments->count(),
+            'joined' => $appointments->whereIn('outcome', Appointment::OUTCOMES_ATTENDED)->count(),
+            'deals' => $appointments->where('outcome', Appointment::OUTCOME_DEAL)->count(),
             'no_show' => $appointments->where('outcome', 'no_show')->count(),
             'rescheduled' => $appointments->where('outcome', 'rescheduled')->count(),
-            'left_early' => $appointments->where('outcome', 'left_early')->count(),
-            'closed_won' => $appointments->where('outcome', 'closed_won')->count(),
             'commented' => $appointments->filter(fn (Appointment $a) => trim((string) $a->outcome_note) !== '')->count(),
         ];
 

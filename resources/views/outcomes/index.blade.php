@@ -1,19 +1,30 @@
 @extends('layouts.app')
 
-@section('title', 'Call Outcomes')
-@section('page_title', 'Call Outcomes')
-@section('page_subtitle', 'Log what happened on each call, comment per client, and keep the deal browser')
+@section('title', 'Call Stats')
+@section('page_title', 'Call Stats')
+@section('page_subtitle', 'Log each call outcome (tap an icon), comment per client, and keep the deal browser')
 
 @section('content')
 @php
   $chip = fn ($r) => ($range ?? '') === $r ? 'chip-active' : '';
-  $dispTz = config('app.display_timezone') ?: config('app.timezone');
-  $copyLines = $appointments->map(function ($a) {
-    $time = $a->localStart()?->format('H:i') ?? '--:--';
+  $icons = [
+    'scheduled'   => ['📅', 'Scheduled'],
+    'joined_line' => ['🤝', 'Joined/LINE (deal closed)'],
+    'joined_vorr' => ['💬', 'Joined/Vorr'],
+    'joined_left' => ['🚪', 'Joined/Left Call'],
+    'no_show'     => ['❌', "Didn't join"],
+    'rescheduled' => ['🔄', 'Rescheduled'],
+    'canceled'    => ['🚫', 'Canceled'],
+  ];
+  $labelFor = function ($a) use ($icons) {
+    if ($a->hasCustomOutcome()) return $a->outcome;
     $eff = $a->effectiveOutcome();
-    $label = $a->hasCustomOutcome() ? $a->outcome : (\App\Models\Appointment::OUTCOMES[$eff] ?? $eff);
+    return $icons[$eff][1] ?? (\App\Models\Appointment::OUTCOMES[$eff] ?? $eff);
+  };
+  $copyLines = $appointments->map(function ($a) use ($labelFor) {
+    $time = $a->localStart()?->format('H:i') ?? '--:--';
     $note = trim((string) $a->outcome_note);
-    return $time.' - '.$label.($note !== '' ? ' - '.$note : '');
+    return $time.' - '.$labelFor($a).($note !== '' ? ' - '.$note : '');
   })->implode("\n");
 @endphp
 
@@ -36,21 +47,21 @@
 
 <div class="stat-grid wrap compact" style="grid-template-columns:repeat(6,1fr)">
   <div class="stat-card"><span>Total calls</span><strong>{{ $summary['total'] }}</strong><small>in range</small></div>
-  <div class="stat-card danger"><span>No-show</span><strong>{{ $summary['no_show'] }}</strong><small>didn't join</small></div>
+  <div class="stat-card"><span>Joined</span><strong>{{ $summary['joined'] }}</strong><small>attended</small></div>
+  <div class="stat-card"><span>Deals</span><strong>{{ $summary['deals'] }}</strong><small>Joined/LINE</small></div>
+  <div class="stat-card danger"><span>Didn't join</span><strong>{{ $summary['no_show'] }}</strong><small>no-show</small></div>
   <div class="stat-card accent"><span>Rescheduled</span><strong>{{ $summary['rescheduled'] }}</strong><small>moved</small></div>
-  <div class="stat-card"><span>Left the call</span><strong>{{ $summary['left_early'] }}</strong><small>early exit</small></div>
-  <div class="stat-card"><span>Deals won</span><strong>{{ $summary['closed_won'] }}</strong><small>closed</small></div>
   <div class="stat-card"><span>Commented</span><strong>{{ $summary['commented'] }}</strong><small>have a note</small></div>
 </div>
 
 <div class="form-actions" style="margin:0 0 16px">
-  <button type="button" class="btn btn-primary copy-btn" data-copy="{{ $copyLines }}" title="Copy every call as: time - outcome - comment">⧉ Copy outcomes (end of day)</button>
+  <button type="button" class="btn btn-primary copy-btn" data-copy="{{ $copyLines }}" title="Copy every call as: time - outcome - comment">⧉ Copy stats (end of day)</button>
   <span class="muted">Copies each call as <code>HH:MM - outcome - comment</code>.</span>
 </div>
 
 <div class="panel">
   <div class="panel-head">
-    <div><h2>Calls</h2><p>{{ $appointments->count() }} call(s) · set an outcome + comment, and star the browser to keep · GMT+1</p></div>
+    <div><h2>Calls</h2><p>{{ $appointments->count() }} call(s) · tap an outcome icon to log it · GMT+1</p></div>
   </div>
   <div class="table-wrap">
     <table class="outcomes-table">
@@ -59,14 +70,14 @@
           <th>Lead</th>
           <th>Company</th>
           <th>Call</th>
-          <th style="width:190px">Outcome</th>
+          <th>Outcome</th>
           <th>Comment</th>
           <th>Browsers</th>
-          <th style="width:80px"></th>
         </tr>
       </thead>
       <tbody>
       @forelse ($appointments as $a)
+        @php $isCustom = $a->hasCustomOutcome(); $eff = $a->effectiveOutcome(); @endphp
         <tr class="oc-row oc-{{ $a->outcome }}">
           <td class="col-lead">
             <strong>{{ $a->contact?->full_name ?: '—' }}</strong>
@@ -83,20 +94,25 @@
           </td>
           <td>
             <form method="post" action="{{ route('outcomes.update', $a) }}" id="oc-{{ $a->id }}">@csrf @method('PUT')</form>
-            @php $isCustom = $a->hasCustomOutcome(); $eff = $a->effectiveOutcome(); @endphp
-            <select name="outcome" form="oc-{{ $a->id }}" class="outcome-select js-outcome-select" data-row="{{ $a->id }}">
-              @foreach ($outcomes as $key => $label)
-                <option value="{{ $key }}" @selected(! $isCustom && $eff === $key)>{{ $label }}</option>
+            <div class="outcome-icons">
+              @foreach ($icons as $key => [$icon, $label])
+                <button type="submit" form="oc-{{ $a->id }}" name="outcome" value="{{ $key }}"
+                        class="oc-icon {{ ! $isCustom && $eff === $key ? 'active' : '' }}" title="{{ $label }}">{{ $icon }}</button>
               @endforeach
-              <option value="__custom__" @selected($isCustom)>✎ Custom…</option>
-            </select>
-            <input type="text" name="outcome_custom" form="oc-{{ $a->id }}" class="oc-custom" id="occ-{{ $a->id }}"
-                   value="{{ $isCustom ? $a->outcome : '' }}" placeholder="Type custom outcome" maxlength="30"
-                   style="{{ $isCustom ? '' : 'display:none' }}">
+              <button type="button" class="oc-icon oc-custom-toggle {{ $isCustom ? 'active' : '' }}" data-row="{{ $a->id }}" title="Custom outcome">✎</button>
+            </div>
+            <div class="oc-custom-wrap" id="occ-wrap-{{ $a->id }}" style="{{ $isCustom ? '' : 'display:none' }}">
+              <input type="text" name="outcome_custom" form="oc-{{ $a->id }}" value="{{ $isCustom ? $a->outcome : '' }}" placeholder="Custom outcome" maxlength="30">
+              <button type="submit" form="oc-{{ $a->id }}" name="outcome" value="__custom__" class="btn btn-primary btn-sm">Save</button>
+            </div>
           </td>
           <td>
-            <input type="text" name="outcome_note" form="oc-{{ $a->id }}" class="oc-note"
-                   value="{{ $a->outcome_note }}" placeholder="Reason / reschedule / notes…">
+            <div class="oc-note-row">
+              <input type="text" name="outcome_note" form="oc-{{ $a->id }}" class="oc-note"
+                     value="{{ $a->outcome_note }}" placeholder="Reason / notes…">
+              <button type="submit" form="oc-{{ $a->id }}" name="outcome" value="{{ $isCustom ? '__custom__' : $eff }}"
+                      class="btn btn-secondary btn-sm" title="Save note (keeps current outcome)">💾</button>
+            </div>
           </td>
           <td class="oc-browsers">
             @php $profs = $a->profiles->whereIn('status', ['created', 'reserved'])->sortBy('number'); @endphp
@@ -113,12 +129,9 @@
               <span class="muted">No browsers</span>
             @endforelse
           </td>
-          <td>
-            <button class="btn btn-primary btn-sm" form="oc-{{ $a->id }}" type="submit">Save</button>
-          </td>
         </tr>
       @empty
-        <tr><td colspan="7" class="empty">No calls in this range.</td></tr>
+        <tr><td colspan="6" class="empty">No calls in this range.</td></tr>
       @endforelse
       </tbody>
     </table>
@@ -126,13 +139,14 @@
 </div>
 
 <script>
-  document.querySelectorAll('.js-outcome-select').forEach(function (sel) {
-    var custom = document.getElementById('occ-' + sel.dataset.row);
-    if (!custom) return;
-    sel.addEventListener('change', function () {
-      var on = sel.value === '__custom__';
-      custom.style.display = on ? '' : 'none';
-      if (on) custom.focus();
+  document.querySelectorAll('.oc-custom-toggle').forEach(function (btn) {
+    var wrap = document.getElementById('occ-wrap-' + btn.dataset.row);
+    if (!wrap) return;
+    btn.addEventListener('click', function () {
+      var show = wrap.style.display === 'none';
+      wrap.style.display = show ? '' : 'none';
+      var inp = wrap.querySelector('input');
+      if (show && inp) inp.focus();
     });
   });
 </script>

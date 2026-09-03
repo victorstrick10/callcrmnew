@@ -48,7 +48,7 @@ class CallOutcomesTest extends TestCase
         $this->get(route('outcomes.index'))
             ->assertOk()
             ->assertSee('owen@example.com')
-            ->assertSee('Call Outcomes');
+            ->assertSee('Call Stats');
     }
 
     public function test_can_set_outcome_and_comment(): void
