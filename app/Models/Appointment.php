@@ -78,14 +78,19 @@ class Appointment extends Model
         'pending' => 'Pending',
         'scheduled' => 'Scheduled',
         'joined' => 'Joined',
-        'no_show' => "No-show (didn't join)",
+        'joined_line' => 'Joined/LINE (deal closed)',
+        'joined_vorr' => 'Joined/Vorr',
+        'joined_left' => 'Joined/Left Call',
+        'no_show' => "Didn't join",
         'rescheduled' => 'Rescheduled',
         'canceled' => 'Canceled',
-        'left_early' => 'Left the call',
-        'closed_won' => 'Deal closed (won)',
-        'closed_lost' => 'Deal lost',
-        'callback' => 'Callback / follow-up',
     ];
+
+    /** The outcome that represents a closed deal. */
+    public const OUTCOME_DEAL = 'joined_line';
+
+    /** Outcomes that mean the invitee attended the call. */
+    public const OUTCOMES_ATTENDED = ['joined', 'joined_line', 'joined_vorr', 'joined_left'];
 
     /**
      * The outcome to show by default. When no outcome has been logged yet, fall

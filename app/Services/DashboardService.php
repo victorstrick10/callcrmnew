@@ -134,27 +134,25 @@ class DashboardService
             ->pluck('c', 'outcome');
 
         $total = (int) $by->sum();
-        $joined = (int) ($by['joined'] ?? 0);
-        $won = (int) ($by['closed_won'] ?? 0);
-        $lost = (int) ($by['closed_lost'] ?? 0);
+        $won = (int) ($by[Appointment::OUTCOME_DEAL] ?? 0);
         $noShow = (int) ($by['no_show'] ?? 0);
         $rescheduled = (int) ($by['rescheduled'] ?? 0);
-        $leftEarly = (int) ($by['left_early'] ?? 0);
 
-        $attended = $joined + $won + $leftEarly;
+        $attended = 0;
+        foreach (Appointment::OUTCOMES_ATTENDED as $key) {
+            $attended += (int) ($by[$key] ?? 0);
+        }
 
         return [
             'total' => $total,
-            'joined' => $joined,
+            'joined' => $attended,
             'won' => $won,
-            'lost' => $lost,
             'no_show' => $noShow,
             'rescheduled' => $rescheduled,
-            'left_early' => $leftEarly,
             'kept_browsers' => (int) BrowserProfile::query()->where('is_kept', true)->count(),
             'show_rate' => $total > 0 ? (int) round(($attended / $total) * 100) : 0,
             'no_show_rate' => $total > 0 ? (int) round(($noShow / $total) * 100) : 0,
-            'win_rate' => ($won + $lost) > 0 ? (int) round(($won / ($won + $lost)) * 100) : 0,
+            'win_rate' => $attended > 0 ? (int) round(($won / $attended) * 100) : 0,
         ];
     }
 
@@ -171,7 +169,7 @@ class DashboardService
             ->whereHas('appointments.profiles', fn ($q) => $q->where('status', 'created'))
             ->count();
         $deals = (int) Contact::query()
-            ->whereHas('appointments', fn ($q) => $q->where('outcome', 'closed_won'))
+            ->whereHas('appointments', fn ($q) => $q->where('outcome', Appointment::OUTCOME_DEAL))
             ->count();
 
         $base = max(1, $leads);
