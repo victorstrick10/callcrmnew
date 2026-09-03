@@ -20,12 +20,13 @@ class CallOutcomesTest extends TestCase
         parent::tearDown();
     }
 
-    private function seedCall(string $utcStart): Appointment
+    private function seedCall(string $utcStart, string $email = 'owen@example.com'): Appointment
     {
-        $company = Company::create(['name' => 'Acme', 'slug' => 'acme', 'enabled' => true]);
+        $slug = 'acme-'.substr(md5($email.$utcStart), 0, 8);
+        $company = Company::create(['name' => 'Acme', 'slug' => $slug, 'enabled' => true]);
         $contact = Contact::create([
             'company_id' => $company->id,
-            'first_name' => 'Owen', 'last_name' => 'Case', 'email' => 'owen@example.com',
+            'first_name' => 'Owen', 'last_name' => 'Case', 'email' => $email,
         ]);
 
         return Appointment::create([
@@ -83,11 +84,45 @@ class CallOutcomesTest extends TestCase
         $this->assertFalse($profile->fresh()->is_kept);
     }
 
-    public function test_rejects_invalid_outcome(): void
+    public function test_can_set_custom_outcome(): void
     {
         $appt = $this->seedCall('2026-09-10 09:00:00');
 
-        $this->put(route('outcomes.update', $appt), ['outcome' => 'bogus'])
-            ->assertSessionHasErrors('outcome');
+        $this->put(route('outcomes.update', $appt), [
+            'outcome' => '__custom__',
+            'outcome_custom' => 'Wants proposal',
+        ])->assertRedirect();
+
+        $appt->refresh();
+        $this->assertSame('Wants proposal', $appt->outcome);
+        $this->assertTrue($appt->hasCustomOutcome());
+        $this->assertSame('Wants proposal', $appt->outcomeLabel());
+    }
+
+    public function test_custom_outcome_requires_text(): void
+    {
+        $appt = $this->seedCall('2026-09-10 09:00:00');
+
+        $this->put(route('outcomes.update', $appt), ['outcome' => '__custom__', 'outcome_custom' => ''])
+            ->assertSessionHasErrors('outcome_custom');
+    }
+
+    public function test_defaults_to_today_and_sorts_earliest_first(): void
+    {
+        config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
+        Carbon::setTestNow(Carbon::parse('2026-09-10 12:00:00', 'UTC'));
+
+        // Two calls today (Belgrade) + one earlier this week but not today.
+        $late = $this->seedCall('2026-09-10 16:00:00', 'late@example.com');
+        $early = $this->seedCall('2026-09-10 08:00:00', 'early@example.com');
+        $notToday = $this->seedCall('2026-09-08 09:00:00', 'old@example.com');
+
+        $res = $this->get(route('outcomes.index')); // default = today
+        $res->assertOk();
+        // Only today's two calls appear; earliest first.
+        $res->assertSeeInOrder([
+            $early->contact->email,
+            $late->contact->email,
+        ]);
     }
 }

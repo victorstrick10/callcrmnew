@@ -87,7 +87,21 @@ class Appointment extends Model
 
     public function outcomeLabel(): string
     {
-        return self::OUTCOMES[$this->outcome] ?? 'Pending';
+        if (isset(self::OUTCOMES[$this->outcome])) {
+            return self::OUTCOMES[$this->outcome];
+        }
+
+        $value = trim((string) $this->outcome);
+
+        return $value === '' ? 'Pending' : $value;
+    }
+
+    /** True when the stored outcome is a custom (typed) value, not a preset. */
+    public function hasCustomOutcome(): bool
+    {
+        $value = trim((string) $this->outcome);
+
+        return $value !== '' && ! array_key_exists($value, self::OUTCOMES);
     }
 
     public function company(): BelongsTo

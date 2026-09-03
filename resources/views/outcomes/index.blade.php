@@ -10,13 +10,22 @@
   $dispTz = config('app.display_timezone') ?: config('app.timezone');
 @endphp
 
-<div class="filters-bar panel" style="padding:16px;margin-bottom:16px">
+<form method="get" class="filters-bar panel" style="padding:16px;margin-bottom:16px">
   <div class="quick-chips">
-    <a class="chip-btn {{ $chip('this_week') }}" href="{{ route('outcomes.index', ['range' => 'this_week']) }}">This week</a>
-    <a class="chip-btn {{ $chip('last_week') }}" href="{{ route('outcomes.index', ['range' => 'last_week']) }}">Last week</a>
-    <a class="chip-btn {{ $chip('all') }}" href="{{ route('outcomes.index', ['range' => 'all']) }}">All time</a>
+    <button class="chip-btn {{ $chip('today') }}" type="submit" name="range" value="today">Today's calls</button>
+    <button class="chip-btn {{ $chip('this_week') }}" type="submit" name="range" value="this_week">This week</button>
+    <button class="chip-btn {{ $chip('last_week') }}" type="submit" name="range" value="last_week">Last week</button>
+    <button class="chip-btn {{ $chip('all') }}" type="submit" name="range" value="all">All time</button>
   </div>
-</div>
+  <div class="form-grid" style="grid-template-columns:repeat(3,1fr);align-items:end;margin-top:14px">
+    <div><label>From</label><input type="date" name="from" value="{{ $from ?? '' }}"></div>
+    <div><label>To</label><input type="date" name="to" value="{{ $to ?? '' }}"></div>
+    <div class="form-actions" style="margin:0">
+      <button class="btn btn-primary" type="submit">Apply dates</button>
+      <a class="btn btn-secondary" href="{{ route('outcomes.index') }}">Reset</a>
+    </div>
+  </div>
+</form>
 
 <div class="stat-grid wrap compact" style="grid-template-columns:repeat(6,1fr)">
   <div class="stat-card"><span>Total calls</span><strong>{{ $summary['total'] }}</strong><small>in range</small></div>
@@ -62,11 +71,16 @@
           </td>
           <td>
             <form method="post" action="{{ route('outcomes.update', $a) }}" id="oc-{{ $a->id }}">@csrf @method('PUT')</form>
-            <select name="outcome" form="oc-{{ $a->id }}" class="outcome-select">
+            @php $isCustom = $a->hasCustomOutcome(); @endphp
+            <select name="outcome" form="oc-{{ $a->id }}" class="outcome-select js-outcome-select" data-row="{{ $a->id }}">
               @foreach ($outcomes as $key => $label)
-                <option value="{{ $key }}" @selected($a->outcome === $key)>{{ $label }}</option>
+                <option value="{{ $key }}" @selected(! $isCustom && $a->outcome === $key)>{{ $label }}</option>
               @endforeach
+              <option value="__custom__" @selected($isCustom)>✎ Custom…</option>
             </select>
+            <input type="text" name="outcome_custom" form="oc-{{ $a->id }}" class="oc-custom" id="occ-{{ $a->id }}"
+                   value="{{ $isCustom ? $a->outcome : '' }}" placeholder="Type custom outcome" maxlength="30"
+                   style="{{ $isCustom ? '' : 'display:none' }}">
           </td>
           <td>
             <input type="text" name="outcome_note" form="oc-{{ $a->id }}" class="oc-note"
@@ -98,4 +112,16 @@
     </table>
   </div>
 </div>
+
+<script>
+  document.querySelectorAll('.js-outcome-select').forEach(function (sel) {
+    var custom = document.getElementById('occ-' + sel.dataset.row);
+    if (!custom) return;
+    sel.addEventListener('change', function () {
+      var on = sel.value === '__custom__';
+      custom.style.display = on ? '' : 'none';
+      if (on) custom.focus();
+    });
+  });
+</script>
 @endsection

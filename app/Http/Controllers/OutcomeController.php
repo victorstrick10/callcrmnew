@@ -19,16 +19,26 @@ class OutcomeController extends Controller
      */
     public function index(Request $request): View
     {
-        $range = (string) $request->query('range', 'this_week');
-        if (! in_array($range, ['this_week', 'last_week', 'all'], true)) {
-            $range = 'this_week';
+        $from = trim((string) $request->query('from', ''));
+        $to = trim((string) $request->query('to', ''));
+
+        $rangeParam = $request->query('range');
+        if ($rangeParam !== null) {
+            $range = (string) $rangeParam;
+        } elseif ($from !== '' || $to !== '') {
+            $range = 'custom';
+        } else {
+            $range = 'today';
+        }
+        if (! in_array($range, ['today', 'this_week', 'last_week', 'all', 'custom'], true)) {
+            $range = 'today';
         }
 
-        [$start, $end] = $this->rangeBounds($range);
+        [$start, $end] = $this->rangeBounds($range, $from, $to);
 
         $query = Appointment::query()
             ->with(['contact', 'company', 'profiles'])
-            ->orderByDesc('start_time');
+            ->orderBy('start_time'); // earliest call first
 
         if ($start && $end) {
             $query->whereBetween('start_time', [$start, $end]);
@@ -49,19 +59,26 @@ class OutcomeController extends Controller
             'appointments' => $appointments,
             'summary' => $summary,
             'range' => $range,
+            'from' => $from,
+            'to' => $to,
             'outcomes' => Appointment::OUTCOMES,
         ]);
     }
 
     public function update(Request $request, Appointment $appointment): RedirectResponse
     {
-        $data = $request->validate([
-            'outcome' => ['required', Rule::in(array_keys(Appointment::OUTCOMES))],
-            'outcome_note' => ['nullable', 'string', 'max:2000'],
-        ]);
+        $request->validate(['outcome_note' => ['nullable', 'string', 'max:2000']]);
 
-        $appointment->outcome = $data['outcome'];
-        $appointment->outcome_note = trim((string) ($data['outcome_note'] ?? ''));
+        $outcome = (string) $request->input('outcome', 'pending');
+        if ($outcome === '__custom__') {
+            $request->validate(['outcome_custom' => ['required', 'string', 'max:30']]);
+            $outcome = trim((string) $request->input('outcome_custom'));
+        } elseif (! array_key_exists($outcome, Appointment::OUTCOMES)) {
+            $outcome = 'pending';
+        }
+
+        $appointment->outcome = mb_substr($outcome, 0, 30);
+        $appointment->outcome_note = trim((string) $request->input('outcome_note', ''));
         $appointment->outcome_at = now();
         $appointment->save();
 
@@ -87,21 +104,56 @@ class OutcomeController extends Controller
     /**
      * @return array{0:?Carbon,1:?Carbon} UTC bounds for the selected range.
      */
-    private function rangeBounds(string $range): array
+    private function rangeBounds(string $range, string $from = '', string $to = ''): array
     {
         if ($range === 'all') {
             return [null, null];
         }
 
         $tz = config('app.display_timezone') ?: config('app.timezone');
-        $weekStart = Carbon::now($tz)->startOfWeek(Carbon::MONDAY);
 
-        if ($range === 'last_week') {
-            $start = $weekStart->copy()->subWeek();
+        if ($range === 'today') {
+            $start = Carbon::now($tz)->startOfDay();
 
-            return [$start->copy()->utc(), $weekStart->copy()->utc()];
+            return [$start->copy()->utc(), $start->copy()->addDay()->utc()];
         }
 
-        return [$weekStart->copy()->utc(), $weekStart->copy()->addWeek()->utc()];
+        if ($range === 'this_week') {
+            $start = Carbon::now($tz)->startOfWeek(Carbon::MONDAY);
+
+            return [$start->copy()->utc(), $start->copy()->addWeek()->utc()];
+        }
+
+        if ($range === 'last_week') {
+            $start = Carbon::now($tz)->startOfWeek(Carbon::MONDAY)->subWeek();
+
+            return [$start->copy()->utc(), $start->copy()->addWeek()->utc()];
+        }
+
+        // Custom from/to range.
+        $start = null;
+        $end = null;
+        try {
+            if ($from !== '') {
+                $start = Carbon::createFromFormat('Y-m-d', $from, $tz)->startOfDay();
+            }
+            if ($to !== '') {
+                $end = Carbon::createFromFormat('Y-m-d', $to, $tz)->startOfDay()->addDay();
+            }
+        } catch (\Throwable) {
+            return [null, null];
+        }
+
+        if ($start && ! $end) {
+            $end = $start->copy()->addDay();
+        }
+        if ($end && ! $start) {
+            $start = $end->copy()->subDay();
+        }
+        if ($start && $end && $end->lte($start)) {
+            $end = $start->copy()->addDay();
+        }
+
+        return [$start?->copy()->utc(), $end?->copy()->utc()];
     }
 }
