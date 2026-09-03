@@ -1231,44 +1231,106 @@ class MultiloginClient
     }
 
     /**
-     * Ordered GEO proxy attempts honoring the requested behavior:
-     *   1) mobile · country + region + city + ISP
-     *   2) mobile · country + region + city   (ISP dropped when it can't match)
-     *   3) mobile · country + region          (ISP + city dropped)
-     *   4) mobile · country
-     *   5) country only, no connection type   (safety net so a proxy is always
-     *      generated even if the connectionType/isp fields are unsupported)
+     * Reduce a raw ISP/org string to the brand form Multilogin's ISP picker
+     * expects, e.g. "Sunrise Communications AG" -> "sunrise",
+     * "Telefonica Germany GmbH & Co.OHG" -> "telefonica germany".
+     */
+    public static function _clean_isp(string $isp): string
+    {
+        $s = strtolower($isp);
+        $s = preg_replace('/[^a-z0-9]+/', ' ', $s);
+        $tokens = array_values(array_filter(explode(' ', trim((string) $s)), static fn ($t) => $t !== ''));
+
+        // Corporate suffixes / generic descriptors that never help matching.
+        $noise = [
+            'gmbh', 'ag', 'ltd', 'limited', 'inc', 'llc', 'plc', 'sa', 'srl', 'spa', 'bv', 'nv',
+            'co', 'ohg', 'kg', 'corp', 'corporation', 'company', 'group', 'holdings', 'holding',
+            'communications', 'communication', 'telecom', 'telecommunications', 'telekom',
+            'mobile', 'mobil', 'wireless', 'networks', 'network', 'solutions', 'services', 'service',
+            'internet', 'broadband', 'business', 'enterprise', 'and', 'the',
+        ];
+
+        $kept = array_values(array_filter($tokens, static fn ($t) => strlen($t) >= 2 && ! in_array($t, $noise, true)));
+
+        return implode(' ', $kept);
+    }
+
+    /**
+     * ISP match variants, most-specific-brand first: the leading brand token,
+     * then the fuller cleaned form (so a dropdown like "Sunrise" still matches
+     * when the raw org is "Sunrise Communications AG").
      *
-     * The `connection` key defaults to the given type (mobile) on every real
-     * attempt; the final safety attempt omits it.
+     * @return list<string>
+     */
+    public static function _isp_variants(string $isp): array
+    {
+        $clean = self::_clean_isp($isp);
+        if ($clean === '') {
+            return [];
+        }
+
+        $brand = explode(' ', $clean)[0];
+        $variants = [$brand];
+        if ($clean !== $brand) {
+            $variants[] = $clean;
+        }
+
+        return $variants;
+    }
+
+    /**
+     * Ordered GEO proxy attempts. Always mobile, and matches as much of the
+     * lead's location + ISP as possible before gracefully loosening:
+     *   A) mobile · country + region + city + ISP  (then without ISP)
+     *   B) mobile · country + city + ISP            (city-first, so a known city
+     *      like "Dubai" still matches when the region label differs; then no ISP)
+     *   C) mobile · country + region
+     *   D) mobile · country + ISP                   (nationwide carrier; then no ISP)
+     *   safety) country only, no connection type    (so a proxy is always issued
+     *      even if connectionType/isp/city are rejected by the API)
      *
      * @return list<array{country:string,region:string,city:string,isp:string,connection:string}>
      */
     public static function geo_proxy_attempts(array $location, string $isp = '', string $connection = 'mobile'): array
     {
-        $base = self::proxy_location_attempts($location);
-        if (! $base) {
-            return [];
-        }
+        $country = self::_country_code($location['country'] ?? '');
+        $region = self::_snake_case_location($location['region'] ?? '');
+        $city = self::_snake_case_location($location['city'] ?? '');
 
-        $isp = trim($isp);
+        $variants = self::_isp_variants($isp);
         $attempts = [];
 
-        // Finest attempt also carries the ISP (only when we have a full city + an ISP).
-        $full = $base[0];
-        if ($isp !== '' && $full['region'] !== '' && $full['city'] !== '') {
-            $attempts[] = $full + ['isp' => $isp, 'connection' => $connection];
+        // Add ISP variants (specific first), then the same tier without ISP.
+        $add = function (string $r, string $c) use (&$attempts, $country, $connection, $variants): void {
+            foreach ($variants as $v) {
+                $attempts[] = ['country' => $country, 'region' => $r, 'city' => $c, 'isp' => $v, 'connection' => $connection];
+            }
+            $attempts[] = ['country' => $country, 'region' => $r, 'city' => $c, 'isp' => '', 'connection' => $connection];
+        };
+
+        if ($region !== '' && $city !== '') {
+            $add($region, $city);            // A: full match
+        }
+        if ($city !== '') {
+            $add('', $city);                 // B: city-first (e.g. Dubai)
+        }
+        if ($region !== '') {
+            $attempts[] = ['country' => $country, 'region' => $region, 'city' => '', 'isp' => '', 'connection' => $connection]; // C
+        }
+        $add('', '');                        // D: country (+ISP, then plain)
+
+        // Safety net: bare country with no connection type.
+        $attempts[] = ['country' => $country, 'region' => '', 'city' => '', 'isp' => '', 'connection' => ''];
+
+        // Drop consecutive duplicates.
+        $out = [];
+        foreach ($attempts as $a) {
+            if (! $out || end($out) !== $a) {
+                $out[] = $a;
+            }
         }
 
-        foreach ($base as $b) {
-            $attempts[] = $b + ['isp' => '', 'connection' => $connection];
-        }
-
-        // Safety net: bare country with no connection type, so proxy generation
-        // never fully fails if `connectionType`/`isp` are rejected by the API.
-        $attempts[] = ['country' => $base[count($base) - 1]['country'], 'region' => '', 'city' => '', 'isp' => '', 'connection' => ''];
-
-        return $attempts;
+        return array_values($out);
     }
 
     /**
@@ -1489,7 +1551,7 @@ class MultiloginClient
         ];
     }
 
-    public function generate_proxy_candidates($appointment, int $count = 5): array
+    public function generate_proxy_candidates($appointment, int $count = 5, array $overrides = []): array
     {
         $count = max(1, min($count ?: 5, 10));
         $clientIsp = (string) (self::attr($appointment, 'client_isp') ?: self::attr($appointment, 'client_org') ?: '');
@@ -1498,7 +1560,7 @@ class MultiloginClient
 
         for ($index = 0; $index < $count; $index++) {
             try {
-                $proxy = $this->generate_multilogin_proxy($appointment);
+                $proxy = $this->generate_multilogin_proxy($appointment, $overrides);
                 $exitInfo = [];
                 $inspectError = null;
                 try {
@@ -1511,10 +1573,11 @@ class MultiloginClient
                 }
 
                 $verifiedIsp = self::_isp_name($exitInfo);
-                // When exit inspection can't resolve the proxy's ISP (e.g. CONNECT
-                // inspection failed), fall back to the client's ISP so the ISP field
-                // is populated instead of left blank.
-                $proxyIsp = $verifiedIsp !== '' ? $verifiedIsp : $clientIsp;
+                // Only ever surface the proxy's real ISP: the verified exit ISP when
+                // inspection succeeds, otherwise the ISP we actually requested from
+                // Multilogin. Never the client's own ISP (that would be misleading —
+                // e.g. showing a lead's corporate "Zscaler" on a Dubai proxy).
+                $proxyIsp = $verifiedIsp !== '' ? $verifiedIsp : (string) ($proxy['requested_isp'] ?? '');
                 $score = self::_isp_similarity($clientIsp, $verifiedIsp);
                 $cityMatch = self::_normalize_location_text($exitInfo['city'] ?? '')
                     === self::_normalize_location_text((string) (self::attr($appointment, 'city') ?? ''));
@@ -1616,9 +1679,9 @@ class MultiloginClient
         return $candidate;
     }
 
-    public function save_proxy_for_appointment($appointment, int $candidate_count = 5, bool $auto_select = true): array
+    public function save_proxy_for_appointment($appointment, int $candidate_count = 5, bool $auto_select = true, array $overrides = []): array
     {
-        $candidates = $this->generate_proxy_candidates($appointment, $candidate_count);
+        $candidates = $this->generate_proxy_candidates($appointment, $candidate_count, $overrides);
         $appointment->proxy_candidates_json = json_encode($candidates, JSON_UNESCAPED_UNICODE);
 
         $selected = $candidates[0];
@@ -1675,11 +1738,27 @@ class MultiloginClient
      * Generate a Multilogin proxy using the documented endpoint:
      * POST https://profile-proxy.multilogin.com/v1/proxy/connection_url
      */
-    public function generate_multilogin_proxy($appointment): array
+    public function generate_multilogin_proxy($appointment, array $overrides = []): array
     {
         $location = self::_location_from_appointment($appointment);
 
-        $protocol = strtolower((string) ($this->cfg['multilogin_proxy_protocol'] ?? 'http'));
+        // Manual overrides (Multilogin-GUI style) take precedence over auto-match.
+        // Region/City/ISP are honored even when explicitly cleared to '' so the
+        // operator can broaden the target exactly like in the Multilogin UI.
+        if (($overrides['country'] ?? '') !== '') {
+            $location['country'] = (string) $overrides['country'];
+        }
+        if (array_key_exists('region', $overrides)) {
+            $location['region'] = (string) $overrides['region'];
+        }
+        if (array_key_exists('city', $overrides)) {
+            $location['city'] = (string) $overrides['city'];
+        }
+
+        $protocol = strtolower((string) ($overrides['protocol'] ?? ($this->cfg['multilogin_proxy_protocol'] ?? 'http')));
+        if ($protocol === '') {
+            $protocol = 'http';
+        }
         if (!in_array($protocol, ['http', 'socks5'], true)) {
             throw new \RuntimeException('Multilogin proxy protocol must be http or socks5.');
         }
@@ -1704,16 +1783,18 @@ class MultiloginClient
         $headers = $this->headers();
         $headers['X-Strict-Mode'] = $strictMode ? 'true' : 'false';
 
-        // GEO profiles always use a mobile connection type unless a company
-        // explicitly overrides it. Match region/city/ISP with graceful fallback.
-        $connectionType = strtolower((string) ($this->cfg['multilogin_proxy_type'] ?? '')) ?: 'mobile';
+        // GEO profiles always use a mobile connection type unless the company or
+        // the operator explicitly overrides it. Match region/city/ISP with graceful fallback.
+        $connectionType = strtolower((string) ($overrides['connection'] ?? ($this->cfg['multilogin_proxy_type'] ?? ''))) ?: 'mobile';
         if (! in_array($connectionType, ['mobile', 'residential', 'isp'], true)) {
             $connectionType = 'mobile';
         }
 
         $clientIsp = (string) (self::attr($appointment, 'client_isp') ?: self::attr($appointment, 'client_org') ?: '');
+        // A manually-entered ISP wins (even when cleared to '' to drop the ISP filter).
+        $targetIsp = array_key_exists('isp', $overrides) ? (string) $overrides['isp'] : $clientIsp;
 
-        $attempts = self::geo_proxy_attempts($location, $clientIsp, $connectionType);
+        $attempts = self::geo_proxy_attempts($location, $targetIsp, $connectionType);
         $errors = [];
 
         foreach ($attempts as $attempt) {

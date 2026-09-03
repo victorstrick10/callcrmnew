@@ -129,31 +129,21 @@ class MultiloginClientTest extends TestCase
             'mobile'
         );
 
-        // 1) mobile + full location + ISP
-        $this->assertSame(
-            ['country' => 'us', 'region' => 'new_york', 'city' => 'new_york', 'isp' => 'Verizon', 'connection' => 'mobile'],
-            $attempts[0]
-        );
-        // 2) mobile + full location (ISP dropped)
-        $this->assertSame(
+        $this->assertSame([
+            // A: full location + ISP, then without ISP
+            ['country' => 'us', 'region' => 'new_york', 'city' => 'new_york', 'isp' => 'verizon', 'connection' => 'mobile'],
             ['country' => 'us', 'region' => 'new_york', 'city' => 'new_york', 'isp' => '', 'connection' => 'mobile'],
-            $attempts[1]
-        );
-        // 3) mobile + country + region (city dropped)
-        $this->assertSame(
+            // B: city-first (region dropped) + ISP, then without ISP
+            ['country' => 'us', 'region' => '', 'city' => 'new_york', 'isp' => 'verizon', 'connection' => 'mobile'],
+            ['country' => 'us', 'region' => '', 'city' => 'new_york', 'isp' => '', 'connection' => 'mobile'],
+            // C: region only
             ['country' => 'us', 'region' => 'new_york', 'city' => '', 'isp' => '', 'connection' => 'mobile'],
-            $attempts[2]
-        );
-        // 4) mobile + country only
-        $this->assertSame(
+            // D: country + ISP, then plain country
+            ['country' => 'us', 'region' => '', 'city' => '', 'isp' => 'verizon', 'connection' => 'mobile'],
             ['country' => 'us', 'region' => '', 'city' => '', 'isp' => '', 'connection' => 'mobile'],
-            $attempts[3]
-        );
-        // 5) safety net: country only, no connection type
-        $this->assertSame(
+            // safety net: country only, no connection type
             ['country' => 'us', 'region' => '', 'city' => '', 'isp' => '', 'connection' => ''],
-            $attempts[4]
-        );
+        ], $attempts);
     }
 
     public function test_geo_proxy_attempts_without_isp_skip_isp_attempt(): void
@@ -167,6 +157,37 @@ class MultiloginClientTest extends TestCase
         // No ISP -> first attempt is the full-location mobile attempt (no ISP key value).
         $this->assertSame('', $attempts[0]['isp']);
         $this->assertSame('mobile', $attempts[0]['connection']);
+        // No ISP variants at all across the ladder.
+        foreach ($attempts as $a) {
+            $this->assertSame('', $a['isp']);
+        }
+    }
+
+    public function test_geo_proxy_attempts_try_city_without_region_for_named_cities(): void
+    {
+        $attempts = MultiloginClient::geo_proxy_attempts(
+            ['country' => 'AE', 'region' => 'Dubai', 'city' => 'Dubai'],
+            'Etisalat',
+            'mobile'
+        );
+
+        // A city-first attempt (region dropped, city kept) must exist so a
+        // Multilogin-known city like "Dubai" still matches.
+        $this->assertContains(
+            ['country' => 'ae', 'region' => '', 'city' => 'dubai', 'isp' => 'etisalat', 'connection' => 'mobile'],
+            $attempts
+        );
+    }
+
+    public function test_clean_isp_reduces_to_brand_and_variants(): void
+    {
+        $this->assertSame('sunrise', MultiloginClient::_clean_isp('Sunrise Communications AG'));
+        $this->assertSame('telefonica germany', MultiloginClient::_clean_isp('Telefonica Germany GmbH & Co.OHG'));
+        $this->assertSame('verizon', MultiloginClient::_clean_isp('Verizon Business'));
+
+        $this->assertSame(['telefonica', 'telefonica germany'], MultiloginClient::_isp_variants('Telefonica Germany GmbH & Co.OHG'));
+        $this->assertSame(['sunrise'], MultiloginClient::_isp_variants('Sunrise Communications AG'));
+        $this->assertSame([], MultiloginClient::_isp_variants(''));
     }
 
     public function test_extract_profile_id_from_ids_array(): void

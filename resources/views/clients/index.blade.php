@@ -225,13 +225,15 @@
               </div>
               <form method="post" action="{{ route('appointments.proxy.get', $c->display_appointment_id) }}" style="margin:6px 0 0">
                 @csrf
-                <button class="mini-btn ghost" type="submit" title="Rotate / get a new Multilogin proxy IP for this lead">↻ Refresh IP</button>
+                <button class="mini-btn ghost" type="submit" title="Rotate / get a new Multilogin proxy IP for this lead (keeps auto-match)">↻ Refresh IP</button>
               </form>
+              @include('clients.partials.proxy-edit', ['c' => $c])
             @elseif ($c->display_appointment_id)
               <form method="post" action="{{ route('appointments.proxy.get', $c->display_appointment_id) }}" style="margin:0">
                 @csrf
-                <button class="mini-btn" type="submit" title="Generate a Multilogin proxy matching country/region/city + ISP">Get proxy</button>
+                <button class="mini-btn" type="submit" title="Generate a Multilogin proxy matching country/region/city + ISP (auto-match)">Get proxy (auto)</button>
               </form>
+              @include('clients.partials.proxy-edit', ['c' => $c])
             @else
               <span class="muted">—</span>
             @endif

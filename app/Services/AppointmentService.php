@@ -188,13 +188,14 @@ class AppointmentService
         return ['ready' => $ready, 'failed' => $failed];
     }
 
-    public function getProxy(Appointment $appointment, int $candidateCount = 5, bool $autoSelect = true): array
+    public function getProxy(Appointment $appointment, int $candidateCount = 5, bool $autoSelect = true, array $overrides = []): array
     {
         try {
             return $this->multiloginFor($appointment)->save_proxy_for_appointment(
                 $appointment,
                 $candidateCount,
-                $autoSelect
+                $autoSelect,
+                $overrides
             );
         } catch (Throwable $exc) {
             $appointment->proxy_status = 'failed';

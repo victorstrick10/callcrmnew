@@ -44,6 +44,35 @@
     </form>
   </div>
 
+  <details class="proxy-edit" style="margin:0 0 12px">
+    <summary title="Edit the proxy target like the Multilogin GUI (auto-match stays the default)">✎ Edit target like Multilogin</summary>
+    <form method="post" action="{{ route('appointments.proxy.get', $appointment) }}" class="proxy-edit-form" style="max-width:420px">
+      @csrf
+      <input type="hidden" name="ov_edit" value="1">
+      <label>Connection type
+        <select name="ov_connection">
+          <option value="mobile" selected>Mobile</option>
+          <option value="residential">Residential</option>
+          <option value="isp">ISP</option>
+        </select>
+      </label>
+      <label>Country <small>(2-letter ISO)</small>
+        <input type="text" name="ov_country" maxlength="2" value="{{ $appointment->country_code ?: $appointment->country }}" placeholder="AE">
+      </label>
+      <div class="pe-row">
+        <label>Region <small>(optional)</small><input type="text" name="ov_region" value="{{ $appointment->region }}" placeholder="Dubai"></label>
+        <label>City <small>(optional)</small><input type="text" name="ov_city" value="{{ $appointment->city }}" placeholder="Dubai"></label>
+      </div>
+      <label>ISP <small>(optional)</small>
+        <input type="text" name="ov_isp" value="{{ $appointment->client_isp }}" placeholder="Etisalat">
+      </label>
+      <label>Protocol
+        <select name="ov_protocol"><option value="http" selected>HTTP</option><option value="socks5">SOCKS5</option></select>
+      </label>
+      <button class="btn btn-primary" type="submit">Build with these →</button>
+    </form>
+  </details>
+
   <div class="proxy-flow">
     <span>IPinfo location</span><b>→</b>
     <span>{{ $appointment->city ?: 'No city' }}, {{ $appointment->region ?: 'No region' }}, {{ $appointment->country_code ?: $appointment->country ?: 'No country' }}</span><b>→</b>

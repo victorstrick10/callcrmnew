@@ -175,18 +175,35 @@ class AppointmentController extends Controller
     public function getProxy(Request $request, Appointment $appointment, AppointmentService $service): RedirectResponse
     {
         try {
+            // Manual, Multilogin-GUI-style overrides. Only applied when the edit
+            // form is submitted (ov_edit=1); otherwise auto-match is used.
+            $overrides = [];
+            if ($request->boolean('ov_edit')) {
+                $overrides = [
+                    'connection' => trim((string) $request->input('ov_connection', '')),
+                    'country' => strtoupper(trim((string) $request->input('ov_country', ''))),
+                    'region' => trim((string) $request->input('ov_region', '')),
+                    'city' => trim((string) $request->input('ov_city', '')),
+                    'isp' => trim((string) $request->input('ov_isp', '')),
+                    'protocol' => trim((string) $request->input('ov_protocol', '')),
+                ];
+            }
+
             $proxy = $service->getProxy(
                 $appointment,
                 (int) ($request->input('candidate_count', 5) ?: 5),
-                $request->input('selection_mode', 'auto') === 'auto'
+                $request->input('selection_mode', 'auto') === 'auto',
+                $overrides
             );
             $location = $proxy['target_location'] ?? [];
             $matchText = str_replace('_', ' ', $appointment->fresh()->proxy_match_level ?? 'country');
+            $prefix = $overrides ? 'Proxy built (manual target)' : 'Proxy ready';
 
-            return redirect()->route('appointments.show', $appointment)->with(
+            return back()->with(
                 'success',
                 sprintf(
-                    'Proxy ready: %s, %s, %s (%s match).',
+                    '%s: %s, %s, %s (%s match).',
+                    $prefix,
                     $location['city'] ?? '',
                     $location['region'] ?? '',
                     $location['country'] ?? '',
@@ -194,7 +211,7 @@ class AppointmentController extends Controller
                 )
             );
         } catch (Throwable $e) {
-            return redirect()->route('appointments.show', $appointment)->with('danger', 'Proxy failed: '.$e->getMessage());
+            return back()->with('danger', 'Proxy failed: '.$e->getMessage());
         }
     }
 
