@@ -34,9 +34,13 @@
 
 <form method="get" class="filters-bar panel" style="padding:16px;margin-bottom:16px">
   <div class="quick-chips">
-    <button class="chip-btn {{ $chip('today') }}" type="submit" name="range" value="today">Today's calls</button>
+    <button class="chip-btn {{ $chip('today') }}" type="submit" name="range" value="today">Today</button>
     <button class="chip-btn {{ $chip('this_week') }}" type="submit" name="range" value="this_week">This week</button>
     <button class="chip-btn {{ $chip('last_week') }}" type="submit" name="range" value="last_week">Last week</button>
+    <button class="chip-btn {{ $chip('month') }}" type="submit" name="range" value="month">This month</button>
+    <button class="chip-btn {{ $chip('q3') }}" type="submit" name="range" value="q3">3 months</button>
+    <button class="chip-btn {{ $chip('q6') }}" type="submit" name="range" value="q6">6 months</button>
+    <button class="chip-btn {{ $chip('year') }}" type="submit" name="range" value="year">Year</button>
     <button class="chip-btn {{ $chip('all') }}" type="submit" name="range" value="all">All time</button>
   </div>
   <div class="form-grid" style="grid-template-columns:repeat(4,1fr);align-items:end;margin-top:14px">
@@ -160,13 +164,7 @@
 
 <div class="panel">
   <div class="panel-head">
-    <div><h2>Outcome analytics</h2><p>Distribution, win &amp; show rate, and 12-month trend</p></div>
-    <div class="quick-chips" id="analyticsPeriods">
-      <button type="button" class="chip-btn chip-active" data-period="month">This month</button>
-      <button type="button" class="chip-btn" data-period="q3">3 months</button>
-      <button type="button" class="chip-btn" data-period="q6">6 months</button>
-      <button type="button" class="chip-btn" data-period="year">Year</button>
-    </div>
+    <div><h2>Outcome analytics</h2><p>Reflects the {{ $summary['total'] }} call(s) in the current filter above — change the range/search to move the gauges</p></div>
   </div>
   <div class="analytics-grid">
     <div class="analytics-card">
@@ -265,25 +263,14 @@
     });
   }
 
-  var dealC, winC, showC;
-  function render(period) {
-    var d = A[period] || { counts: {}, total: 0, win_rate: 0, show_rate: 0, deals: 0 };
-    if (dealC) dealC.destroy(); if (winC) winC.destroy(); if (showC) showC.destroy();
+  (function renderAnalytics() {
+    var d = (A && A.counts) ? A : { counts: {}, total: 0, win_rate: 0, show_rate: 0, deals: 0 };
     var dealShare = d.total > 0 ? Math.round((d.deals || 0) / d.total * 100) : 0;
-    dealC = gauge('gaugeDeal', 'gaugeDealVal', dealShare, '#16a36a', String(d.deals || 0));
-    winC = gauge('gaugeWin', 'gaugeWinVal', d.win_rate || 0, '#5b5cf0', (d.win_rate || 0) + '%');
-    showC = gauge('gaugeShow', 'gaugeShowVal', d.show_rate || 0, '#0ea5e9', (d.show_rate || 0) + '%');
+    gauge('gaugeDeal', 'gaugeDealVal', dealShare, '#16a36a', String(d.deals || 0));
+    gauge('gaugeWin', 'gaugeWinVal', d.win_rate || 0, '#5b5cf0', (d.win_rate || 0) + '%');
+    gauge('gaugeShow', 'gaugeShowVal', d.show_rate || 0, '#0ea5e9', (d.show_rate || 0) + '%');
     renderOutcomeGauges(d.counts || {}, d.total || 0);
-  }
-
-  document.querySelectorAll('#analyticsPeriods .chip-btn').forEach(function (b) {
-    b.addEventListener('click', function () {
-      document.querySelectorAll('#analyticsPeriods .chip-btn').forEach(function (x) { x.classList.remove('chip-active'); });
-      b.classList.add('chip-active');
-      render(b.dataset.period);
-    });
-  });
-  render('month');
+  })();
 
   var tb = document.getElementById('trendBar');
   if (tb) {

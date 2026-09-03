@@ -36,7 +36,7 @@ class OutcomeController extends Controller
         } else {
             $range = 'today';
         }
-        if (! in_array($range, ['today', 'this_week', 'last_week', 'all', 'custom'], true)) {
+        if (! in_array($range, ['today', 'this_week', 'last_week', 'month', 'q3', 'q6', 'year', 'all', 'custom'], true)) {
             $range = 'today';
         }
 
@@ -83,38 +83,38 @@ class OutcomeController extends Controller
             'to' => $to,
             'search' => $search,
             'outcomes' => Appointment::OUTCOMES,
-            'analytics' => $this->analytics(),
+            'analytics' => $this->bucketizeCollection($all),
             'trend' => $this->trend(),
         ]);
     }
 
     /**
-     * Outcome distribution + rates for rolling windows (1/3/6/12 months).
+     * Bucketize the currently-filtered calls (a collection) by effective outcome,
+     * so the gauges reflect exactly the calls you're viewing/updating.
      */
-    private function analytics(): array
+    private function bucketizeCollection($items): array
     {
-        $tz = config('app.display_timezone') ?: config('app.timezone');
-        $now = Carbon::now($tz);
+        $b = ['scheduled' => 0, 'joined_line' => 0, 'joined_vorr' => 0, 'joined_left' => 0, 'no_show' => 0, 'rescheduled' => 0, 'canceled' => 0];
+        $total = 0;
 
-        $windows = [
-            'month' => $now->copy()->subMonth(),
-            'q3' => $now->copy()->subMonths(3),
-            'q6' => $now->copy()->subMonths(6),
-            'year' => $now->copy()->subYear(),
-        ];
-
-        $out = [];
-        foreach ($windows as $key => $start) {
-            $rows = Appointment::query()
-                ->where('start_time', '>=', $start->copy()->utc())
-                ->selectRaw('outcome, status, count(*) as c')
-                ->groupBy('outcome', 'status')
-                ->get();
-
-            $out[$key] = $this->bucketize($rows);
+        foreach ($items as $a) {
+            $total++;
+            $eff = $this->effectiveKey((string) $a->outcome, (string) $a->status);
+            if (isset($b[$eff])) {
+                $b[$eff]++;
+            }
         }
 
-        return $out;
+        $attended = $b['joined_line'] + $b['joined_vorr'] + $b['joined_left'];
+        $won = $b['joined_line'];
+
+        return [
+            'counts' => $b,
+            'total' => $total,
+            'show_rate' => $total > 0 ? (int) round($attended / $total * 100) : 0,
+            'win_rate' => $attended > 0 ? (int) round($won / $attended * 100) : 0,
+            'deals' => $won,
+        ];
     }
 
     /**
@@ -338,6 +338,14 @@ class OutcomeController extends Controller
             $start = Carbon::now($tz)->startOfWeek(Carbon::MONDAY)->subWeek();
 
             return [$start->copy()->utc(), $start->copy()->addWeek()->utc()];
+        }
+
+        $months = ['month' => 1, 'q3' => 3, 'q6' => 6, 'year' => 12];
+        if (isset($months[$range])) {
+            $start = Carbon::now($tz)->subMonths($months[$range])->startOfDay();
+            $end = Carbon::now($tz)->startOfDay()->addDay();
+
+            return [$start->copy()->utc(), $end->copy()->utc()];
         }
 
         // Custom from/to range.
