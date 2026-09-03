@@ -7,6 +7,7 @@ use App\Models\BrowserProfile;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -22,12 +23,16 @@ class OutcomeController extends Controller
     {
         $from = trim((string) $request->query('from', ''));
         $to = trim((string) $request->query('to', ''));
+        $search = trim((string) $request->query('q', ''));
 
         $rangeParam = $request->query('range');
         if ($rangeParam !== null) {
             $range = (string) $rangeParam;
         } elseif ($from !== '' || $to !== '') {
             $range = 'custom';
+        } elseif ($search !== '') {
+            // Searching should find old calls across all dates by default.
+            $range = 'all';
         } else {
             $range = 'today';
         }
@@ -44,24 +49,39 @@ class OutcomeController extends Controller
         if ($start && $end) {
             $query->whereBetween('start_time', [$start, $end]);
         }
+        $this->applySearch($query, $search);
 
-        $appointments = $query->get();
+        $all = $query->get();
 
         $summary = [
-            'total' => $appointments->count(),
-            'joined' => $appointments->whereIn('outcome', Appointment::OUTCOMES_ATTENDED)->count(),
-            'deals' => $appointments->where('outcome', Appointment::OUTCOME_DEAL)->count(),
-            'no_show' => $appointments->where('outcome', 'no_show')->count(),
-            'rescheduled' => $appointments->where('outcome', 'rescheduled')->count(),
-            'commented' => $appointments->filter(fn (Appointment $a) => trim((string) $a->outcome_note) !== '')->count(),
+            'total' => $all->count(),
+            'joined' => $all->whereIn('outcome', Appointment::OUTCOMES_ATTENDED)->count(),
+            'deals' => $all->where('outcome', Appointment::OUTCOME_DEAL)->count(),
+            'no_show' => $all->where('outcome', 'no_show')->count(),
+            'rescheduled' => $all->where('outcome', 'rescheduled')->count(),
+            'commented' => $all->filter(fn (Appointment $a) => trim((string) $a->outcome_note) !== '')->count(),
         ];
+
+        // Paginate the visible table (25/page) so the analytics below stay
+        // reachable, while copy/summary/analytics still use the full range.
+        $perPage = 25;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $appointments = new LengthAwarePaginator(
+            $all->forPage($page, $perPage)->values(),
+            $all->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return view('outcomes.index', [
             'appointments' => $appointments,
+            'copyList' => $all,
             'summary' => $summary,
             'range' => $range,
             'from' => $from,
             'to' => $to,
+            'search' => $search,
             'outcomes' => Appointment::OUTCOMES,
             'analytics' => $this->analytics(),
             'trend' => $this->trend(),
@@ -85,35 +105,63 @@ class OutcomeController extends Controller
 
         $out = [];
         foreach ($windows as $key => $start) {
-            $by = Appointment::query()
+            $rows = Appointment::query()
                 ->where('start_time', '>=', $start->copy()->utc())
-                ->selectRaw('outcome, count(*) as c')
-                ->groupBy('outcome')
-                ->pluck('c', 'outcome');
+                ->selectRaw('outcome, status, count(*) as c')
+                ->groupBy('outcome', 'status')
+                ->get();
 
-            $b = [
-                'scheduled' => (int) ($by['scheduled'] ?? 0) + (int) ($by['pending'] ?? 0),
-                'joined_line' => (int) ($by['joined_line'] ?? 0),
-                'joined_vorr' => (int) ($by['joined_vorr'] ?? 0),
-                'joined_left' => (int) ($by['joined_left'] ?? 0),
-                'no_show' => (int) ($by['no_show'] ?? 0),
-                'rescheduled' => (int) ($by['rescheduled'] ?? 0),
-                'canceled' => (int) ($by['canceled'] ?? 0),
-            ];
-            $total = array_sum($b);
-            $attended = $b['joined_line'] + $b['joined_vorr'] + $b['joined_left'];
-            $won = $b['joined_line'];
-
-            $out[$key] = [
-                'counts' => $b,
-                'total' => $total,
-                'show_rate' => $total > 0 ? (int) round($attended / $total * 100) : 0,
-                'win_rate' => $attended > 0 ? (int) round($won / $attended * 100) : 0,
-                'deals' => $won,
-            ];
+            $out[$key] = $this->bucketize($rows);
         }
 
         return $out;
+    }
+
+    /**
+     * Aggregate (outcome, status) count rows into the 7 display buckets using
+     * the EFFECTIVE outcome — so un-logged canceled/rescheduled/scheduled calls
+     * are counted from their Calendly status, not left as "pending".
+     *
+     * @param  \Illuminate\Support\Collection  $rows  rows of {outcome, status, c}
+     */
+    private function bucketize($rows): array
+    {
+        $b = ['scheduled' => 0, 'joined_line' => 0, 'joined_vorr' => 0, 'joined_left' => 0, 'no_show' => 0, 'rescheduled' => 0, 'canceled' => 0];
+        $total = 0;
+
+        foreach ($rows as $r) {
+            $c = (int) $r->c;
+            $total += $c;
+            $eff = $this->effectiveKey((string) $r->outcome, (string) $r->status);
+            if (isset($b[$eff])) {
+                $b[$eff] += $c;
+            }
+        }
+
+        $attended = $b['joined_line'] + $b['joined_vorr'] + $b['joined_left'];
+        $won = $b['joined_line'];
+
+        return [
+            'counts' => $b,
+            'total' => $total,
+            'show_rate' => $total > 0 ? (int) round($attended / $total * 100) : 0,
+            'win_rate' => $attended > 0 ? (int) round($won / $attended * 100) : 0,
+            'deals' => $won,
+        ];
+    }
+
+    /** Effective outcome bucket key: logged outcome, else derived from status. */
+    private function effectiveKey(string $outcome, string $status): string
+    {
+        if (! in_array($outcome, ['', 'pending'], true)) {
+            return $outcome;
+        }
+
+        return match ($status) {
+            'canceled' => 'canceled',
+            'rescheduled' => 'rescheduled',
+            default => 'scheduled',
+        };
     }
 
     /**
@@ -131,27 +179,19 @@ class OutcomeController extends Controller
             $start = $monthStart->copy()->utc();
             $end = $monthStart->copy()->addMonth()->utc();
 
-            $by = Appointment::query()
+            $rows = Appointment::query()
                 ->whereBetween('start_time', [$start, $end])
-                ->selectRaw('outcome, count(*) as c')
-                ->groupBy('outcome')
-                ->pluck('c', 'outcome');
+                ->selectRaw('outcome, status, count(*) as c')
+                ->groupBy('outcome', 'status')
+                ->get();
 
-            $outcomes = [
-                'scheduled' => (int) ($by['scheduled'] ?? 0) + (int) ($by['pending'] ?? 0),
-                'joined_line' => (int) ($by['joined_line'] ?? 0),
-                'joined_vorr' => (int) ($by['joined_vorr'] ?? 0),
-                'joined_left' => (int) ($by['joined_left'] ?? 0),
-                'no_show' => (int) ($by['no_show'] ?? 0),
-                'rescheduled' => (int) ($by['rescheduled'] ?? 0),
-                'canceled' => (int) ($by['canceled'] ?? 0),
-            ];
+            $bk = $this->bucketize($rows);
 
             $out[] = [
                 'label' => $monthStart->format('M y'),
-                'calls' => array_sum($outcomes),
-                'deals' => $outcomes['joined_line'],
-                'outcomes' => $outcomes,
+                'calls' => $bk['total'],
+                'deals' => $bk['counts']['joined_line'],
+                'outcomes' => $bk['counts'],
             ];
         }
 
@@ -166,12 +206,15 @@ class OutcomeController extends Controller
     {
         $from = trim((string) $request->query('from', ''));
         $to = trim((string) $request->query('to', ''));
+        $search = trim((string) $request->query('q', ''));
 
         $rangeParam = $request->query('range');
         if ($rangeParam !== null) {
             $range = (string) $rangeParam;
         } elseif ($from !== '' || $to !== '') {
             $range = 'custom';
+        } elseif ($search !== '') {
+            $range = 'all';
         } else {
             $range = 'today';
         }
@@ -185,6 +228,7 @@ class OutcomeController extends Controller
         if ($start && $end) {
             $query->whereBetween('start_time', [$start, $end]);
         }
+        $this->applySearch($query, $search);
         $appointments = $query->get();
 
         $filename = 'call-stats-'.now()->format('Y-m-d-His').'.csv';
@@ -246,6 +290,25 @@ class OutcomeController extends Controller
                 ? 'Marked browser '.$browserProfile->profile_name.' as kept (deal).'
                 : 'Unmarked browser '.$browserProfile->profile_name.'.'
         );
+    }
+
+    /** Filter calls by lead name/email, company name, or event name. */
+    private function applySearch($query, string $search): void
+    {
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%'.$search.'%';
+        $query->where(function ($w) use ($like) {
+            $w->where('event_name', 'ilike', $like)
+                ->orWhereHas('contact', function ($c) use ($like) {
+                    $c->where('first_name', 'ilike', $like)
+                        ->orWhere('last_name', 'ilike', $like)
+                        ->orWhere('email', 'ilike', $like);
+                })
+                ->orWhereHas('company', fn ($c) => $c->where('name', 'ilike', $like));
+        });
     }
 
     /**
