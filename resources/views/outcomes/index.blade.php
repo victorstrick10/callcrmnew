@@ -62,17 +62,22 @@
   </div>
 </form>
 
+@php
+  $cardBase = array_filter(['range' => $range ?? '', 'from' => $from ?? '', 'to' => $to ?? '', 'q' => $search ?? '', 'per_page' => $perPage ?? ''], fn ($v) => $v !== '' && $v !== null);
+  $cardUrl = fn ($oc) => route('outcomes.index', $oc === '' ? $cardBase : array_merge($cardBase, ['outcome' => $oc]));
+  $active = fn ($oc) => ($outcomeFilter ?? '') === $oc ? 'active' : '';
+@endphp
 <div class="stat-grid wrap compact" style="grid-template-columns:repeat(6,1fr)">
-  <div class="stat-card"><span>Total calls</span><strong>{{ $summary['total'] }}</strong><small>in range</small></div>
-  <div class="stat-card"><span>Joined</span><strong>{{ $summary['joined'] }}</strong><small>attended</small></div>
-  <div class="stat-card"><span>Deals</span><strong>{{ $summary['deals'] }}</strong><small>Joined/LINE</small></div>
-  <div class="stat-card danger"><span>Didn't join</span><strong>{{ $summary['no_show'] }}</strong><small>no-show</small></div>
-  <div class="stat-card accent"><span>Rescheduled</span><strong>{{ $summary['rescheduled'] }}</strong><small>moved</small></div>
-  <div class="stat-card"><span>Commented</span><strong>{{ $summary['commented'] }}</strong><small>have a note</small></div>
+  <a class="stat-card {{ $active('') }}" href="{{ $cardUrl('') }}"><span>📊 Total calls</span><strong>{{ $summary['total'] }}</strong><small>show all</small></a>
+  <a class="stat-card {{ $active('joined') }}" href="{{ $cardUrl('joined') }}"><span>🟢 Joined</span><strong>{{ $summary['joined'] }}</strong><small>attended</small></a>
+  <a class="stat-card {{ $active('deals') }}" href="{{ $cardUrl('deals') }}"><span>🤝 Deals</span><strong>{{ $summary['deals'] }}</strong><small>Joined/LINE</small></a>
+  <a class="stat-card danger {{ $active('no_show') }}" href="{{ $cardUrl('no_show') }}"><span>❌ Didn't join</span><strong>{{ $summary['no_show'] }}</strong><small>no-show</small></a>
+  <a class="stat-card accent {{ $active('rescheduled') }}" href="{{ $cardUrl('rescheduled') }}"><span>🔄 Rescheduled</span><strong>{{ $summary['rescheduled'] }}</strong><small>moved</small></a>
+  <a class="stat-card {{ $active('commented') }}" href="{{ $cardUrl('commented') }}"><span>💬 Commented</span><strong>{{ $summary['commented'] }}</strong><small>have a note</small></a>
 </div>
 
 @php
-  $exportQuery = array_filter(['range' => $range ?? '', 'from' => $from ?? '', 'to' => $to ?? '', 'q' => $search ?? ''], fn ($v) => $v !== '' && $v !== null);
+  $exportQuery = array_filter(['range' => $range ?? '', 'from' => $from ?? '', 'to' => $to ?? '', 'q' => $search ?? '', 'outcome' => $outcomeFilter ?? ''], fn ($v) => $v !== '' && $v !== null);
 @endphp
 <div class="form-actions" style="margin:0 0 16px">
   <button type="button" class="btn btn-primary copy-btn" data-copy="{{ $copyText }}" title="Copy: date, then each call as time - outcome - comment">⧉ Copy stats (end of day)</button>
@@ -93,12 +98,12 @@
     <table class="outcomes-table">
       <thead>
         <tr>
-          <th>Lead</th>
-          <th>Company</th>
-          <th>Call</th>
-          <th>Outcome</th>
-          <th>Comment</th>
-          <th>Browsers</th>
+          <th style="width:15%">📇 Lead</th>
+          <th style="width:10%">🏢 Company</th>
+          <th style="width:11%">🕐 Call</th>
+          <th style="width:24%">🎯 Outcome</th>
+          <th style="width:28%">💬 Comment</th>
+          <th style="width:12%">🌐 Browsers</th>
         </tr>
       </thead>
       <tbody>

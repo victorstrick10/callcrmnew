@@ -293,6 +293,8 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 .outcomes-table{width:100%;border-collapse:collapse}
 .outcomes-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#8a93a6;padding:6px 8px;border-bottom:1px solid var(--line)}
 .outcomes-table td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.outcomes-table tbody tr:hover{background:#f6f8ff}
+.outcomes-table .oc-note{width:100%}
 .outcomes-table .col-lead strong{font-weight:800;font-size:13px;display:block;line-height:1.2}
 .outcomes-table .col-lead small{color:var(--muted);font-size:11px}
 .outcomes-table .col-b{font-size:12px}
@@ -358,6 +360,7 @@ textarea:focus{border-color:#8b8cf5;box-shadow:0 0 0 3px rgba(91,92,240,.1)}
 /* Clickable stat cards */
 a.stat-card{text-decoration:none;color:inherit;transition:transform .12s,box-shadow .12s;cursor:pointer}
 a.stat-card:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(30,41,59,.14)}
+a.stat-card.active{border-color:var(--primary);box-shadow:0 0 0 2px rgba(91,92,240,.2)}
 
 /* Static proxy connection details (collapsible) */
 .proxy-conn-row td{background:#fafbff}

@@ -53,28 +53,32 @@ class OutcomeController extends Controller
 
         $all = $query->get();
 
+        // Summary by EFFECTIVE outcome (canceled/rescheduled/scheduled derived
+        // from status) so the cards match the gauges.
         $summary = [
             'total' => $all->count(),
-            'joined' => $all->whereIn('outcome', Appointment::OUTCOMES_ATTENDED)->count(),
-            'deals' => $all->where('outcome', Appointment::OUTCOME_DEAL)->count(),
-            'no_show' => $all->where('outcome', 'no_show')->count(),
-            'rescheduled' => $all->where('outcome', 'rescheduled')->count(),
+            'joined' => $all->filter(fn (Appointment $a) => in_array($a->effectiveOutcome(), Appointment::OUTCOMES_ATTENDED, true))->count(),
+            'deals' => $all->filter(fn (Appointment $a) => $a->effectiveOutcome() === Appointment::OUTCOME_DEAL)->count(),
+            'no_show' => $all->filter(fn (Appointment $a) => $a->effectiveOutcome() === 'no_show')->count(),
+            'rescheduled' => $all->filter(fn (Appointment $a) => $a->effectiveOutcome() === 'rescheduled')->count(),
             'commented' => $all->filter(fn (Appointment $a) => trim((string) $a->outcome_note) !== '')->count(),
         ];
 
-        // Paginate the visible table (default 10/page; user-selectable) so the
-        // analytics below stay reachable, while copy/summary/analytics still use
-        // the full range.
+        // Clickable stat cards filter the visible calls by effective outcome.
+        $outcomeFilter = (string) $request->query('outcome', '');
+        $filtered = $this->filterByOutcome($all, $outcomeFilter);
+
+        // Paginate the visible table (default 10/page; user-selectable).
         $perPageParam = (string) $request->query('per_page', '10');
         if (! in_array($perPageParam, ['10', '20', '25', 'all'], true)) {
             $perPageParam = '10';
         }
-        $perPage = $perPageParam === 'all' ? max(1, $all->count()) : (int) $perPageParam;
+        $perPage = $perPageParam === 'all' ? max(1, $filtered->count()) : (int) $perPageParam;
 
         $page = LengthAwarePaginator::resolveCurrentPage();
         $appointments = new LengthAwarePaginator(
-            $all->forPage($page, $perPage)->values(),
-            $all->count(),
+            $filtered->forPage($page, $perPage)->values(),
+            $filtered->count(),
             $perPage,
             $page,
             ['path' => $request->url(), 'query' => $request->query()]
@@ -82,8 +86,9 @@ class OutcomeController extends Controller
 
         return view('outcomes.index', [
             'appointments' => $appointments,
-            'copyList' => $all,
+            'copyList' => $filtered,
             'summary' => $summary,
+            'outcomeFilter' => $outcomeFilter,
             'range' => $range,
             'from' => $from,
             'to' => $to,
@@ -236,7 +241,7 @@ class OutcomeController extends Controller
             $query->whereBetween('start_time', [$start, $end]);
         }
         $this->applySearch($query, $search);
-        $appointments = $query->get();
+        $appointments = $this->filterByOutcome($query->get(), (string) $request->query('outcome', ''));
 
         $filename = 'call-stats-'.now()->format('Y-m-d-His').'.csv';
 
@@ -299,6 +304,21 @@ class OutcomeController extends Controller
         );
     }
 
+    /** Filter a call collection by the clicked stat card (effective outcome). */
+    private function filterByOutcome($items, string $outcome)
+    {
+        return (match ($outcome) {
+            'joined' => $items->filter(fn (Appointment $a) => in_array($a->effectiveOutcome(), Appointment::OUTCOMES_ATTENDED, true)),
+            'deals' => $items->filter(fn (Appointment $a) => $a->effectiveOutcome() === Appointment::OUTCOME_DEAL),
+            'no_show' => $items->filter(fn (Appointment $a) => $a->effectiveOutcome() === 'no_show'),
+            'rescheduled' => $items->filter(fn (Appointment $a) => $a->effectiveOutcome() === 'rescheduled'),
+            'canceled' => $items->filter(fn (Appointment $a) => $a->effectiveOutcome() === 'canceled'),
+            'scheduled' => $items->filter(fn (Appointment $a) => $a->effectiveOutcome() === 'scheduled'),
+            'commented' => $items->filter(fn (Appointment $a) => trim((string) $a->outcome_note) !== ''),
+            default => $items,
+        })->values();
+    }
+
     /** Filter calls by lead name/email, company name, or event name. */
     private function applySearch($query, string $search): void
     {
@@ -312,7 +332,11 @@ class OutcomeController extends Controller
                 ->orWhereHas('contact', function ($c) use ($like) {
                     $c->where('first_name', 'ilike', $like)
                         ->orWhere('last_name', 'ilike', $like)
-                        ->orWhere('email', 'ilike', $like);
+                        ->orWhere('email', 'ilike', $like)
+                        // Match the full "First Last" name (with the space between).
+                        ->orWhereRaw("(coalesce(first_name,'') || ' ' || coalesce(last_name,'')) ILIKE ?", [$like])
+                        // And the reversed "Last First" order.
+                        ->orWhereRaw("(coalesce(last_name,'') || ' ' || coalesce(first_name,'')) ILIKE ?", [$like]);
                 })
                 ->orWhereHas('company', fn ($c) => $c->where('name', 'ilike', $like));
         });

@@ -141,6 +141,35 @@ class CallOutcomesTest extends TestCase
         $this->get(route('outcomes.index', ['q' => 'olddude']))->assertOk()->assertSee('olddude@example.com');
     }
 
+    public function test_search_matches_full_name_with_space(): void
+    {
+        config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
+        Carbon::setTestNow(Carbon::parse('2026-09-10 12:00:00', 'UTC'));
+
+        // seedCall creates first_name "Owen", last_name "Case".
+        $this->seedCall('2026-09-05 09:00:00', 'owenc@example.com');
+
+        $this->get(route('outcomes.index', ['q' => 'Owen Case']))->assertOk()->assertSee('owenc@example.com');
+        $this->get(route('outcomes.index', ['q' => 'Case Owen']))->assertOk()->assertSee('owenc@example.com');
+    }
+
+    public function test_outcome_card_filters_calls(): void
+    {
+        config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
+        Carbon::setTestNow(Carbon::parse('2026-09-10 12:00:00', 'UTC'));
+
+        $deal = $this->seedCall('2026-09-10 09:00:00', 'deal@example.com');
+        $deal->update(['outcome' => 'joined_line']);
+        $miss = $this->seedCall('2026-09-10 10:00:00', 'miss@example.com');
+        $miss->update(['outcome' => 'no_show']);
+
+        $this->get(route('outcomes.index', ['range' => 'today', 'outcome' => 'deals']))
+            ->assertOk()->assertSee('deal@example.com')->assertDontSee('miss@example.com');
+
+        $this->get(route('outcomes.index', ['range' => 'today', 'outcome' => 'no_show']))
+            ->assertOk()->assertSee('miss@example.com')->assertDontSee('deal@example.com');
+    }
+
     public function test_defaults_to_today_and_sorts_earliest_first(): void
     {
         config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
