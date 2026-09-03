@@ -389,5 +389,46 @@ class CompanyController extends Controller
         if ($request->filled('multilogin_token')) {
             $company->setMultiloginToken($request->input('multilogin_token'));
         }
+        if ($request->filled('multilogin_email')) {
+            $company->setMultiloginEmail($request->input('multilogin_email'));
+        }
+        if ($request->filled('multilogin_password')) {
+            $company->setMultiloginPassword($request->input('multilogin_password'));
+        }
+    }
+
+    /**
+     * Mint a fresh Multilogin token now: sign in with the company's saved
+     * credentials (works even after expiry); fall back to token refresh.
+     */
+    public function refreshMultilogin(Company $company, MultiloginClient $multilogin): RedirectResponse
+    {
+        $baseUrl = (string) ($company->multilogin_base_url ?: '');
+        $new = null;
+
+        if ($company->hasMultiloginCredentials()) {
+            $new = (new MultiloginClient('', $baseUrl))
+                ->signin((string) $company->getMultiloginEmail(), (string) $company->getMultiloginPassword());
+        }
+        if (! (is_string($new) && strlen($new) > 40) && $company->getMultiloginToken()) {
+            $new = $multilogin->forCompany($company)->refresh_token();
+        }
+
+        if (is_string($new) && strlen($new) > 40 && substr_count($new, '.') === 2) {
+            [$ok, $msg] = (new MultiloginClient($new, $baseUrl))->pingToken();
+            if ($ok) {
+                $company->setMultiloginToken($new);
+                $company->save();
+                $company->setServiceStatus('multilogin', true, 'Token refreshed.');
+
+                return back()->with('success', 'Multilogin token refreshed and live.');
+            }
+        }
+
+        $company->setServiceStatus('multilogin', false, 'Refresh failed.');
+
+        return back()->with('danger', $company->hasMultiloginCredentials()
+            ? 'Sign-in failed — check the Multilogin email/password.'
+            : 'Add a Multilogin email + password to enable auto-refresh, then try again.');
     }
 }

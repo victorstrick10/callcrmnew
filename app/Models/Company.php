@@ -113,6 +113,32 @@ class Company extends Model
         return $this->decryptNullable($this->multilogin_token_encrypted);
     }
 
+    public function setMultiloginEmail(?string $value): void
+    {
+        $this->multilogin_email_encrypted = $value ? Crypt::encryptString($value) : null;
+    }
+
+    public function getMultiloginEmail(): ?string
+    {
+        return $this->decryptNullable($this->multilogin_email_encrypted);
+    }
+
+    public function setMultiloginPassword(?string $value): void
+    {
+        $this->multilogin_password_encrypted = $value ? Crypt::encryptString($value) : null;
+    }
+
+    public function getMultiloginPassword(): ?string
+    {
+        return $this->decryptNullable($this->multilogin_password_encrypted);
+    }
+
+    /** True when this company can auto-mint Multilogin tokens from credentials. */
+    public function hasMultiloginCredentials(): bool
+    {
+        return $this->getMultiloginEmail() !== null && $this->getMultiloginPassword() !== null;
+    }
+
     private function decryptNullable(?string $value): ?string
     {
         if (! $value) {

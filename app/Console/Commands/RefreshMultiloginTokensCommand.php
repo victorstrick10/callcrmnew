@@ -11,10 +11,14 @@ class RefreshMultiloginTokensCommand extends Command
 {
     protected $signature = 'multilogin:refresh-tokens';
 
-    protected $description = 'Every 10 min: keep each company\'s Multilogin token fresh (safe refresh) and update the live/expired status light.';
+    protected $description = 'Every 10 min: keep each company\'s Multilogin token valid — sign in with saved credentials when the token is missing/expiring/failing — and update the live/expired status light.';
+
+    /** Mint a fresh token this many seconds before the current one expires. */
+    private const REFRESH_BEFORE = 12 * 3600;
 
     public function handle(MultiloginClient $multilogin): int
     {
+        $signed = 0;
         $refreshed = 0;
         $live = 0;
         $down = 0;
@@ -22,11 +26,8 @@ class RefreshMultiloginTokensCommand extends Command
 
         foreach (Company::query()->get() as $company) {
             $current = (string) $company->getMultiloginToken();
-            if ($current === '') {
-                $skipped++;
-
-                continue;
-            }
+            $hasCreds = $company->hasMultiloginCredentials();
+            $baseUrl = (string) ($company->multilogin_base_url ?: '');
 
             try {
                 $client = $multilogin->forCompany($company);
@@ -36,18 +37,49 @@ class RefreshMultiloginTokensCommand extends Command
                     continue;
                 }
 
-                // Attempt a refresh, but ONLY persist the new token when it is a
-                // valid JWT AND it actually authenticates. This guarantees a good
-                // token is never overwritten with an invalid one.
-                $new = $client->refresh_token();
-                if ($this->isUsableJwt($new) && $new !== $current) {
-                    $probe = new MultiloginClient($new, (string) ($company->multilogin_base_url ?: ''));
-                    [$newOk] = $probe->pingToken();
+                if ($current === '' && ! $hasCreds) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                // Is a fresh token needed? (missing, expiring soon, or not authenticating)
+                $needFresh = $current === '';
+                $message = 'No token.';
+                if ($current !== '') {
+                    $secondsLeft = $client->tokenSecondsLeft();
+                    [$ok, $message] = $client->pingToken();
+                    if (! $ok || ($secondsLeft !== null && $secondsLeft < self::REFRESH_BEFORE)) {
+                        $needFresh = true;
+                    }
+                }
+
+                if (! $needFresh) {
+                    $company->setServiceStatus('multilogin', true, $message);
+                    $live++;
+
+                    continue;
+                }
+
+                // Prefer signing in with credentials (works even after expiry);
+                // fall back to /user/refresh_token when the token is still valid.
+                $new = null;
+                if ($hasCreds) {
+                    $new = (new MultiloginClient('', $baseUrl))
+                        ->signin((string) $company->getMultiloginEmail(), (string) $company->getMultiloginPassword());
+                }
+                $viaSignin = $this->isUsableJwt($new);
+                if (! $viaSignin && $current !== '') {
+                    $new = $client->refresh_token();
+                }
+
+                if ($this->isUsableJwt($new)) {
+                    [$newOk] = (new MultiloginClient($new, $baseUrl))->pingToken();
                     if ($newOk) {
                         $company->setMultiloginToken($new);
                         $company->save();
-                        $company->setServiceStatus('multilogin', true, 'Token refreshed & live.');
-                        $refreshed++;
+                        $company->setServiceStatus('multilogin', true, $viaSignin ? 'Token refreshed via sign-in.' : 'Token refreshed.');
+                        $viaSignin ? $signed++ : $refreshed++;
                         $live++;
                         $this->info("Refreshed Multilogin token for {$company->slug}.");
 
@@ -55,10 +87,15 @@ class RefreshMultiloginTokensCommand extends Command
                     }
                 }
 
-                // No safe refresh available — just report the current token's status.
-                [$ok, $message] = $multilogin->forCompany($company->fresh())->pingToken();
-                $company->setServiceStatus('multilogin', $ok, $message);
-                $ok ? $live++ : $down++;
+                $down++;
+                $company->setServiceStatus(
+                    'multilogin',
+                    false,
+                    $hasCreds
+                        ? 'Auto sign-in failed — check Multilogin email/password on the company.'
+                        : 'Token expired — add Multilogin email/password on the company to auto-refresh.'
+                );
+                $this->warn("{$company->slug}: could not obtain a valid token.");
             } catch (Throwable $e) {
                 $down++;
                 $company->setServiceStatus('multilogin', false, $e->getMessage());
@@ -66,7 +103,7 @@ class RefreshMultiloginTokensCommand extends Command
             }
         }
 
-        $this->info("Multilogin tokens: {$refreshed} refreshed, {$live} live, {$down} down, {$skipped} skipped.");
+        $this->info("Multilogin tokens: {$signed} signed-in, {$refreshed} refreshed, {$live} live, {$down} down, {$skipped} skipped.");
 
         return self::SUCCESS;
     }

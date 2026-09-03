@@ -88,6 +88,14 @@
         <input type="password" name="multilogin_token" placeholder="Leave blank to keep saved token">
       </div>
       <div>
+        <label>Multilogin email <span>for auto-refresh</span></label>
+        <input type="text" name="multilogin_email" value="{{ old('multilogin_email', $company->exists ? $company->getMultiloginEmail() : '') }}" placeholder="you@company.com" autocomplete="off">
+      </div>
+      <div>
+        <label>Multilogin password <span>{{ $masked($company->exists ? $company->getMultiloginPassword() : null) }}</span></label>
+        <input type="password" name="multilogin_password" placeholder="Leave blank to keep saved password" autocomplete="new-password">
+      </div>
+      <div>
         <label>API base URL</label>
         <input name="multilogin_base_url" value="{{ old('multilogin_base_url', $company->multilogin_base_url ?: 'https://api.multilogin.com') }}">
       </div>
@@ -157,6 +165,7 @@
       <form method="post" action="{{ route('companies.test-lead-api', $company) }}">@csrf<button class="btn btn-secondary" type="submit">Test lead API</button></form>
       <form method="post" action="{{ route('companies.test-calendly', $company) }}">@csrf<button class="btn btn-secondary" type="submit">Test Calendly</button></form>
       <form method="post" action="{{ route('companies.multilogin.test', $company) }}">@csrf<button class="btn btn-secondary" type="submit">🔌 Test Multilogin token (live/expired)</button></form>
+      <form method="post" action="{{ route('companies.multilogin.refresh', $company) }}">@csrf<button class="btn btn-secondary" type="submit" title="Sign in with the saved email/password to mint a fresh token now">🔄 Refresh Multilogin token now</button></form>
       <form method="post" action="{{ route('companies.multilogin.connect', $company) }}">@csrf<button class="btn btn-secondary" type="submit">⚡ Connect Multilogin &amp; sync numbers</button></form>
       <form method="post" action="{{ route('companies.sync', $company) }}">@csrf<button class="btn btn-primary" type="submit">Sync leads + Calendly</button></form>
     </div>

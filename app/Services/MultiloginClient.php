@@ -872,6 +872,70 @@ class MultiloginClient
     }
 
     /**
+     * Sign in with Multilogin credentials to mint a fresh automation token.
+     * Multilogin requires the password as an MD5 hash. Returns the new token or
+     * null. Needs no existing token (used to recover from expiry).
+     */
+    public function signin(string $email, string $password): ?string
+    {
+        $email = trim($email);
+        if ($email === '' || $password === '') {
+            return null;
+        }
+
+        $payload = ['email' => $email, 'password' => md5($password)];
+
+        foreach (['/user/signin', '/v1/user/signin', '/api/v1/user/signin'] as $path) {
+            try {
+                $response = Http::timeout(20)
+                    ->withHeaders(['Content-Type' => 'application/json', 'Accept' => 'application/json'])
+                    ->post($this->base_url.$path, $payload);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if (! $response->successful()) {
+                continue;
+            }
+
+            $token = self::_extract_token($response->json());
+            if ($token) {
+                return $token;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Seconds until the current JWT expires (from the `exp` claim), or null if
+     * unknown. Negative means already expired.
+     */
+    public function tokenSecondsLeft(): ?int
+    {
+        try {
+            $parts = explode('.', $this->token);
+            if (count($parts) !== 3) {
+                return null;
+            }
+            $payload = strtr($parts[1], '-_', '+/');
+            $pad = strlen($payload) % 4;
+            if ($pad) {
+                $payload .= str_repeat('=', 4 - $pad);
+            }
+            $claims = json_decode((string) base64_decode($payload, true), true);
+            if (! is_array($claims)) {
+                return null;
+            }
+            $exp = $claims['exp'] ?? ($claims['data']['exp'] ?? null);
+
+            return is_numeric($exp) ? (int) $exp - time() : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * Refresh the current bearer token via POST /user/refresh_token so a valid
      * token is always available. Returns the new token, or null if refresh is
      * not available (e.g. simulation, no token, or endpoint not supported).
