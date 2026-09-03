@@ -188,7 +188,17 @@
             @endif
           </td>
           <td>
-            @if ($c->our_proxy_ready)
+            @if ($c->chosen_proxy_label)
+              <span class="svc-status state-up"><span class="dot"></span>Chosen · {{ ucfirst($c->chosen_proxy_provider ?: 'pool') }}</span>
+              <div class="geo-lines">
+                <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->chosen_proxy_country) }} {{ $c->chosen_proxy_country ?: '—' }}</span>
+                <span><b>Region</b>{{ $c->chosen_proxy_region ?: '—' }}</span>
+                <span><b>City</b>{{ $c->chosen_proxy_city ?: '—' }}</span>
+                <span><b>ISP</b>{{ $c->chosen_proxy_isp ?: '—' }}</span>
+              </div>
+              <small class="muted">{{ $c->chosen_proxy_label }}</small>
+              @unless ($c->chosen_proxy_checked)<small class="muted">run “Check all live” to verify region/city</small>@endunless
+            @elseif ($c->our_proxy_ready)
               <span class="svc-status state-up"><span class="dot"></span>{{ ucfirst($c->our_proxy_provider ?: 'pool') }} · {{ str_replace('_', '+', $c->our_proxy_level) }}</span>
               <div class="geo-lines">
                 <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->our_proxy_country) }} {{ $c->our_proxy_country ?: '—' }}</span>
@@ -199,9 +209,6 @@
               @unless ($c->our_proxy_checked)<small class="muted">run “Check all live” to verify region/city</small>@endunless
             @else
               <span class="svc-status state-unknown"><span class="dot"></span>No match</span>
-            @endif
-            @if ($c->chosen_proxy_label)
-              <div class="chosen-proxy"><b>Chosen</b> {{ $c->chosen_proxy_label }}</div>
             @endif
             @if ($c->display_appointment_id)
               <button type="button" class="mini-btn ghost pp-open" data-appt="{{ $c->display_appointment_id }}" data-lead="{{ $c->full_name }}" style="margin-top:6px">⇄ Choose proxy</button>

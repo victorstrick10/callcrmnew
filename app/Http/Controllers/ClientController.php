@@ -399,11 +399,26 @@ class ClientController extends Controller
             $contact->has_geo_profile = in_array('geo', $roles, true);
             $contact->has_static_profile = in_array('static', $roles, true);
 
-            // A proxy explicitly assigned to this call via the picker.
+            // A proxy explicitly assigned to this call via the picker. When set, it
+            // takes over the whole "Our Proxy" cell (replacing the auto best-match).
             $contact->chosen_proxy_label = '';
+            $contact->chosen_proxy_provider = '';
+            $contact->chosen_proxy_country = '';
+            $contact->chosen_proxy_region = '';
+            $contact->chosen_proxy_city = '';
+            $contact->chosen_proxy_isp = '';
+            $contact->chosen_proxy_checked = false;
             if ($display && $display->chosen_static_proxy_id) {
                 $cp = $enabledProxies->firstWhere('id', (int) $display->chosen_static_proxy_id);
-                $contact->chosen_proxy_label = $cp ? (string) ($cp->label ?: $cp->host) : '';
+                if ($cp) {
+                    $contact->chosen_proxy_label = (string) ($cp->label ?: $cp->host);
+                    $contact->chosen_proxy_provider = (string) ($cp->provider ?: 'pool');
+                    $contact->chosen_proxy_country = (string) ($cp->exit_country ?: StaticProxyService::proxyCountryCode($cp));
+                    $contact->chosen_proxy_region = (string) $cp->exit_region;
+                    $contact->chosen_proxy_city = (string) $cp->exit_city;
+                    $contact->chosen_proxy_isp = (string) $cp->exit_isp;
+                    $contact->chosen_proxy_checked = $cp->last_check_status === 'up';
+                }
             }
             // A MobileHop static profile is named "… STATIC-MH …".
             $contact->has_static_mhop_profile = (bool) ($display

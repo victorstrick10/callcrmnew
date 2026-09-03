@@ -144,6 +144,11 @@ class StaticMhopProfileTest extends TestCase
         $this->assertSame($chosen->id, (int) $appointment->fresh()->chosen_static_proxy_id);
         $this->assertSame(0, BrowserProfile::query()->where('appointment_id', $appointment->id)->count(), 'Assigning must not create a profile');
 
+        // The chosen proxy takes over the whole "Our Proxy" cell.
+        $html = $this->get(route('clients.index', ['schedule' => 'all']))->getContent();
+        $this->assertStringContainsString('Chosen · Proxycheap', $html);
+        $this->assertStringContainsString('chosen-assign', $html);
+
         // Now the STATIC action creates using the assigned proxy.
         $this->post(route('clients.create-missing-profiles'), ['appointment_ids' => [$appointment->id], 'role' => 'static'])
             ->assertRedirect();
