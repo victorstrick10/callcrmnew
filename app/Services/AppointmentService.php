@@ -263,6 +263,12 @@ class AppointmentService
             $want = array_values(array_intersect($want, $onlyRoles));
         }
 
+        // STATIC-MHop explicitly creates an additional MobileHop static profile,
+        // even when a static profile already exists for this lead.
+        if ($staticProvider && ($onlyRoles === null || in_array('static', $onlyRoles, true)) && ! in_array('static', $want, true)) {
+            $want[] = 'static';
+        }
+
         if (! $want) {
             return [
                 'created' => [],
