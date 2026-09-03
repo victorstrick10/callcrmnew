@@ -62,7 +62,88 @@ class OutcomeController extends Controller
             'from' => $from,
             'to' => $to,
             'outcomes' => Appointment::OUTCOMES,
+            'analytics' => $this->analytics(),
+            'trend' => $this->trend(),
         ]);
+    }
+
+    /**
+     * Outcome distribution + rates for rolling windows (1/3/6/12 months).
+     */
+    private function analytics(): array
+    {
+        $tz = config('app.display_timezone') ?: config('app.timezone');
+        $now = Carbon::now($tz);
+
+        $windows = [
+            'month' => $now->copy()->subMonth(),
+            'q3' => $now->copy()->subMonths(3),
+            'q6' => $now->copy()->subMonths(6),
+            'year' => $now->copy()->subYear(),
+        ];
+
+        $out = [];
+        foreach ($windows as $key => $start) {
+            $by = Appointment::query()
+                ->where('start_time', '>=', $start->copy()->utc())
+                ->selectRaw('outcome, count(*) as c')
+                ->groupBy('outcome')
+                ->pluck('c', 'outcome');
+
+            $b = [
+                'scheduled' => (int) ($by['scheduled'] ?? 0) + (int) ($by['pending'] ?? 0),
+                'joined_line' => (int) ($by['joined_line'] ?? 0),
+                'joined_vorr' => (int) ($by['joined_vorr'] ?? 0),
+                'joined_left' => (int) ($by['joined_left'] ?? 0),
+                'no_show' => (int) ($by['no_show'] ?? 0),
+                'rescheduled' => (int) ($by['rescheduled'] ?? 0),
+                'canceled' => (int) ($by['canceled'] ?? 0),
+            ];
+            $total = array_sum($b);
+            $attended = $b['joined_line'] + $b['joined_vorr'] + $b['joined_left'];
+            $won = $b['joined_line'];
+
+            $out[$key] = [
+                'counts' => $b,
+                'total' => $total,
+                'show_rate' => $total > 0 ? (int) round($attended / $total * 100) : 0,
+                'win_rate' => $attended > 0 ? (int) round($won / $attended * 100) : 0,
+                'deals' => $won,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Calls + deals per month for the last 12 months (chronological).
+     *
+     * @return list<array{label:string,calls:int,deals:int}>
+     */
+    private function trend(): array
+    {
+        $tz = config('app.display_timezone') ?: config('app.timezone');
+        $out = [];
+
+        for ($i = 11; $i >= 0; $i--) {
+            $monthStart = Carbon::now($tz)->startOfMonth()->subMonths($i);
+            $start = $monthStart->copy()->utc();
+            $end = $monthStart->copy()->addMonth()->utc();
+
+            $calls = (int) Appointment::query()->whereBetween('start_time', [$start, $end])->count();
+            $deals = (int) Appointment::query()
+                ->whereBetween('start_time', [$start, $end])
+                ->where('outcome', Appointment::OUTCOME_DEAL)
+                ->count();
+
+            $out[] = [
+                'label' => $monthStart->format('M y'),
+                'calls' => $calls,
+                'deals' => $deals,
+            ];
+        }
+
+        return $out;
     }
 
     public function update(Request $request, Appointment $appointment): RedirectResponse
