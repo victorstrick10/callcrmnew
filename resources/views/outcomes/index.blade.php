@@ -26,6 +26,9 @@
     $note = trim((string) $a->outcome_note);
     return $time.' - '.$labelFor($a).($note !== '' ? ' - '.$note : '');
   })->implode("\n");
+  $copyDate = optional($appointments->first()?->localStart())->format('d.m.y')
+    ?: \Illuminate\Support\Carbon::now($dispTz)->format('d.m.y');
+  $copyText = $copyDate."\n".$copyLines;
 @endphp
 
 <form method="get" class="filters-bar panel" style="padding:16px;margin-bottom:16px">
@@ -58,7 +61,7 @@
   $exportQuery = array_filter(['range' => $range ?? '', 'from' => $from ?? '', 'to' => $to ?? ''], fn ($v) => $v !== '' && $v !== null);
 @endphp
 <div class="form-actions" style="margin:0 0 16px">
-  <button type="button" class="btn btn-primary copy-btn" data-copy="{{ $copyLines }}" title="Copy every call as: time - outcome - comment">⧉ Copy stats (end of day)</button>
+  <button type="button" class="btn btn-primary copy-btn" data-copy="{{ $copyText }}" title="Copy: date, then each call as time - outcome - comment">⧉ Copy stats (end of day)</button>
   <a class="btn btn-secondary" href="{{ route('outcomes.export', $exportQuery) }}">⭳ Export CSV</a>
   <span class="muted">Copies/exports each call as <code>Lead · Company · time · outcome · comment</code>.</span>
 </div>
