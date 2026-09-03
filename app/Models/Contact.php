@@ -44,4 +44,21 @@ class Contact extends Model
 
         return $name !== '' ? $name : (string) $this->email;
     }
+
+    /**
+     * Where the lead originated: 'calendly' when it was created from a Calendly
+     * booking with no matching API lead, otherwise 'lead' (the company Lead API).
+     */
+    public function getSourceAttribute(): string
+    {
+        $raw = is_array($this->lead_raw_json) ? $this->lead_raw_json : [];
+
+        return ($raw['source'] ?? '') === 'calendly' ? 'calendly' : 'lead';
+    }
+
+    /** Human label for the lead source. */
+    public function getSourceLabelAttribute(): string
+    {
+        return $this->source === 'calendly' ? 'Calendly' : 'Lead API';
+    }
 }

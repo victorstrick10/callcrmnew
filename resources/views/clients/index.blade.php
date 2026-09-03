@@ -124,6 +124,7 @@
             'company_label' => $c->company,
             'tenant' => $c->ownerCompany?->name,
             'referrer' => $c->referrer,
+            'source' => $c->source_label,
             'lead_user_agent' => $c->lead_user_agent,
             'lead_ip' => $c->lead_ip,
             'geo_location' => $c->geo_location ?? '',
@@ -163,6 +164,7 @@
           <td class="col-lead">
             <strong>{{ $c->full_name }}</strong>
             <small>{{ $c->email }}</small>
+            <span class="src-badge src-{{ $c->source }}">{{ $c->source_label }}</span>
           </td>
           <td class="col-b">{{ $c->ownerCompany?->name ?? '—' }}</td>
           <td class="col-b">
