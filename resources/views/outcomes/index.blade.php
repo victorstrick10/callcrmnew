@@ -8,6 +8,13 @@
 @php
   $chip = fn ($r) => ($range ?? '') === $r ? 'chip-active' : '';
   $dispTz = config('app.display_timezone') ?: config('app.timezone');
+  $copyLines = $appointments->map(function ($a) {
+    $time = $a->localStart()?->format('H:i') ?? '--:--';
+    $eff = $a->effectiveOutcome();
+    $label = $a->hasCustomOutcome() ? $a->outcome : (\App\Models\Appointment::OUTCOMES[$eff] ?? $eff);
+    $note = trim((string) $a->outcome_note);
+    return $time.' - '.$label.($note !== '' ? ' - '.$note : '');
+  })->implode("\n");
 @endphp
 
 <form method="get" class="filters-bar panel" style="padding:16px;margin-bottom:16px">
@@ -34,6 +41,11 @@
   <div class="stat-card"><span>Left the call</span><strong>{{ $summary['left_early'] }}</strong><small>early exit</small></div>
   <div class="stat-card"><span>Deals won</span><strong>{{ $summary['closed_won'] }}</strong><small>closed</small></div>
   <div class="stat-card"><span>Commented</span><strong>{{ $summary['commented'] }}</strong><small>have a note</small></div>
+</div>
+
+<div class="form-actions" style="margin:0 0 16px">
+  <button type="button" class="btn btn-primary copy-btn" data-copy="{{ $copyLines }}" title="Copy every call as: time - outcome - comment">⧉ Copy outcomes (end of day)</button>
+  <span class="muted">Copies each call as <code>HH:MM - outcome - comment</code>.</span>
 </div>
 
 <div class="panel">
