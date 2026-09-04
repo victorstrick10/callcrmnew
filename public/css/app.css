@@ -374,6 +374,8 @@ a.stat-card.active{border-color:var(--primary);box-shadow:0 0 0 2px rgba(91,92,2
 .proxy-edit-form .pe-row{display:flex;gap:6px}
 .proxy-edit-form .pe-row label{flex:1}
 .proxy-edit-form .mini-btn{margin-top:2px}
+.pool-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.pool-actions .btn{padding:9px 12px;font-size:13px;text-decoration:none;display:inline-block}
 
 /* Static proxy connection details (collapsible) */
 .proxy-conn-row td{background:#fafbff}

@@ -66,6 +66,10 @@ Route::get('/static-proxies', [StaticProxyController::class, 'index'])->name('st
 Route::post('/static-proxies', [StaticProxyController::class, 'store'])->name('static-proxies.store');
 Route::post('/static-proxies/import', [StaticProxyController::class, 'import'])->name('static-proxies.import');
 Route::post('/static-proxies/check-all', [StaticProxyController::class, 'checkAll'])->name('static-proxies.check-all');
+Route::get('/static-proxies/export-credentials', [StaticProxyController::class, 'exportCredentials'])->name('static-proxies.export-credentials');
+Route::post('/static-proxies/soft-reset-mobilehop', [StaticProxyController::class, 'softResetMobileHop'])->name('static-proxies.soft-reset-mobilehop');
+Route::post('/static-proxies/hard-reset-all', [StaticProxyController::class, 'hardResetAll'])->name('static-proxies.hard-reset-all');
+Route::post('/static-proxies/change-ip-proxycheap', [StaticProxyController::class, 'changeIpProxyCheap'])->name('static-proxies.change-ip-proxycheap');
 Route::post('/static-proxies/proxycheap/sync', [StaticProxyController::class, 'syncProxyCheap'])->name('static-proxies.proxycheap.sync');
 Route::post('/static-proxies/{staticProxy}/check', [StaticProxyController::class, 'check'])->name('static-proxies.check');
 Route::put('/static-proxies/{staticProxy}', [StaticProxyController::class, 'update'])->name('static-proxies.update');

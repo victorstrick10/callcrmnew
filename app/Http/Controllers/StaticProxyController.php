@@ -241,6 +241,142 @@ class StaticProxyController extends Controller
         return app(StaticProxyService::class)->check($proxy);
     }
 
+    /**
+     * Clear a proxy's cached verification (exit IP / geo / status) so the next
+     * probe reflects the current rotating IP.
+     */
+    private function clearVerification(StaticProxy $proxy): void
+    {
+        $proxy->forceFill([
+            'last_check_status' => '',
+            'exit_ip' => '',
+            'exit_country' => '',
+            'exit_region' => '',
+            'exit_city' => '',
+            'exit_isp' => '',
+            'last_checked_at' => null,
+        ])->save();
+    }
+
+    /**
+     * Download login credentials for every proxy (ProxyCheap + MobileHop) as CSV:
+     * provider, label, location, host, port, protocol, username, password, network type.
+     */
+    public function exportCredentials(): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $proxies = StaticProxy::query()->orderBy('provider')->orderBy('label')->orderBy('host')->get();
+        $filename = 'proxy-credentials-'.now()->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($proxies) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Provider', 'Label', 'Location', 'Host', 'Port', 'Protocol', 'Username', 'Password', 'Network type', 'Enabled']);
+            foreach ($proxies as $p) {
+                fputcsv($out, [
+                    $p->provider ?: 'other',
+                    $p->label,
+                    $p->location,
+                    $p->host,
+                    $p->port,
+                    $p->protocol,
+                    $p->username,
+                    (string) $p->password,
+                    $p->network_type,
+                    $p->enabled ? 'yes' : 'no',
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    /**
+     * Soft reset all MobileHop proxies: clear their cached exit IP/geo and
+     * immediately re-verify through ipinfo, surfacing their current rotating IP.
+     */
+    public function softResetMobileHop(): RedirectResponse
+    {
+        @set_time_limit(180);
+        $proxies = StaticProxy::query()->where('provider', 'mobilehop')->get();
+        if ($proxies->isEmpty()) {
+            return redirect()->route('static-proxies.index', ['provider' => 'mobilehop'])
+                ->with('warning', 'No MobileHop proxies to reset.');
+        }
+
+        $up = 0;
+        $down = 0;
+        foreach ($proxies as $proxy) {
+            $this->clearVerification($proxy);
+            if ($proxy->enabled) {
+                $this->probe($proxy)['ok'] ? $up++ : $down++;
+            }
+        }
+
+        return redirect()->route('static-proxies.index', ['provider' => 'mobilehop'])
+            ->with('success', "Soft reset {$proxies->count()} MobileHop proxy(ies): {$up} live, {$down} down (current exit IPs re-verified via ipinfo.io).");
+    }
+
+    /**
+     * Hard reset the whole pool: clear every proxy's cached verification (both
+     * providers) and re-verify all enabled proxies from scratch.
+     */
+    public function hardResetAll(): RedirectResponse
+    {
+        @set_time_limit(240);
+        $proxies = StaticProxy::query()->get();
+        if ($proxies->isEmpty()) {
+            return redirect()->route('static-proxies.index')->with('warning', 'No proxies to reset.');
+        }
+
+        $up = 0;
+        $down = 0;
+        foreach ($proxies as $proxy) {
+            $this->clearVerification($proxy);
+            if ($proxy->enabled) {
+                $this->probe($proxy)['ok'] ? $up++ : $down++;
+            }
+        }
+
+        return redirect()->route('static-proxies.index')
+            ->with('success', "Hard reset {$proxies->count()} proxy(ies) across all providers: {$up} live, {$down} down (all cached geo cleared and re-verified).");
+    }
+
+    /**
+     * "Change IP" for all ProxyCheap proxies. ProxyCheap mobile IPs rotate
+     * automatically (every 30 min–10 h) and do not expose a manual rotation API,
+     * so this re-verifies each ProxyCheap proxy to capture its current exit IP.
+     */
+    public function changeIpProxyCheap(): RedirectResponse
+    {
+        @set_time_limit(180);
+        $proxies = StaticProxy::query()->where('provider', 'proxycheap')->get();
+        if ($proxies->isEmpty()) {
+            return redirect()->route('static-proxies.index', ['provider' => 'proxycheap'])
+                ->with('warning', 'No ProxyCheap proxies found. Sync them first.');
+        }
+
+        $up = 0;
+        $down = 0;
+        $changed = 0;
+        foreach ($proxies as $proxy) {
+            $before = (string) $proxy->exit_ip;
+            $this->clearVerification($proxy);
+            if (! $proxy->enabled) {
+                continue;
+            }
+            $result = $this->probe($proxy);
+            if ($result['ok']) {
+                $up++;
+                if ($before !== '' && ($result['ip'] ?? '') !== '' && $before !== $result['ip']) {
+                    $changed++;
+                }
+            } else {
+                $down++;
+            }
+        }
+
+        return redirect()->route('static-proxies.index', ['provider' => 'proxycheap'])
+            ->with('success', "ProxyCheap IPs re-checked: {$up} live, {$down} down, {$changed} changed since last check. (ProxyCheap mobile IPs rotate automatically — manual rotation isn't offered via their API.)");
+    }
+
     public function update(Request $request, StaticProxy $staticProxy): RedirectResponse
     {
         $data = $this->validated($request);

@@ -127,11 +127,26 @@
 <div class="panel">
   <div class="panel-head">
     <div><h2>Proxy pool {{ $provider ? '· '.$providerLabel($provider) : '' }}</h2><p>Edit inline, toggle enabled, or check live status via ipinfo.io</p></div>
-    <form method="post" action="{{ route('static-proxies.check-all') }}" style="margin:0">
-      @csrf
-      <input type="hidden" name="provider" value="{{ $provider }}">
-      <button class="btn btn-secondary" type="submit">🌐 Check all live</button>
-    </form>
+    <div class="pool-actions">
+      <form method="post" action="{{ route('static-proxies.check-all') }}" style="margin:0">
+        @csrf
+        <input type="hidden" name="provider" value="{{ $provider }}">
+        <button class="btn btn-secondary" type="submit">🌐 Check all live</button>
+      </form>
+      <a class="btn btn-secondary" href="{{ route('static-proxies.export-credentials') }}" title="Download host/port/username/password for every ProxyCheap + MobileHop proxy">⬇ Export credentials</a>
+      <form method="post" action="{{ route('static-proxies.change-ip-proxycheap') }}" style="margin:0">
+        @csrf
+        <button class="btn btn-secondary" type="submit" title="Re-verify current exit IPs for all ProxyCheap proxies (they rotate automatically)">🔄 Change IP · ProxyCheap</button>
+      </form>
+      <form method="post" action="{{ route('static-proxies.soft-reset-mobilehop') }}" style="margin:0" onsubmit="return confirm('Soft reset all MobileHop proxies? This clears their cached geo and re-verifies current IPs.');">
+        @csrf
+        <button class="btn btn-secondary" type="submit" title="Fast/soft reset: clear cached geo for all MobileHop proxies and re-verify current IPs">♻ Soft reset · MobileHop</button>
+      </form>
+      <form method="post" action="{{ route('static-proxies.hard-reset-all') }}" style="margin:0" onsubmit="return confirm('Hard reset ALL proxies (ProxyCheap + MobileHop)? This clears every proxy\'s cached geo and re-verifies the whole pool.');">
+        @csrf
+        <button class="btn btn-danger" type="submit" title="Hard reset: clear cached geo for every proxy across all providers and re-verify the whole pool">⟲ Hard reset · all</button>
+      </form>
+    </div>
   </div>
   @foreach ($proxies as $proxy)
     @php $formId = 'proxy-update-'.$proxy->id; @endphp
