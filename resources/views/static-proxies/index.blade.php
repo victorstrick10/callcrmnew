@@ -31,6 +31,137 @@
 
 <div class="panel">
   <div class="panel-head">
+    <div><h2>Proxy pool {{ $provider ? '· '.$providerLabel($provider) : '' }}</h2><p>Edit inline, toggle enabled, or check live status via ipinfo.io</p></div>
+    <div class="pool-actions">
+      <form method="post" action="{{ route('static-proxies.check-all') }}" style="margin:0">
+        @csrf
+        <input type="hidden" name="provider" value="{{ $provider }}">
+        <button class="btn btn-secondary" type="submit">🌐 Check all live</button>
+      </form>
+      <a class="btn btn-secondary" href="{{ route('static-proxies.export-credentials') }}" title="Download host/port/username/password for every ProxyCheap + MobileHop proxy">⬇ Export credentials</a>
+      <form method="post" action="{{ route('static-proxies.change-ip-proxycheap') }}" style="margin:0">
+        @csrf
+        <button class="btn btn-secondary" type="submit" title="Re-verify current exit IPs for all ProxyCheap proxies (they rotate automatically)">🔄 Change IP · ProxyCheap</button>
+      </form>
+      <form method="post" action="{{ route('static-proxies.soft-reset-mobilehop') }}" style="margin:0" onsubmit="return confirm('Soft reset all MobileHop proxies? This clears their cached geo and re-verifies current IPs.');">
+        @csrf
+        <button class="btn btn-secondary" type="submit" title="Fast/soft reset: clear cached geo for all MobileHop proxies and re-verify current IPs">♻ Soft reset · MobileHop</button>
+      </form>
+      <form method="post" action="{{ route('static-proxies.hard-reset-all') }}" style="margin:0" onsubmit="return confirm('Hard reset ALL proxies (ProxyCheap + MobileHop)? This clears every proxy\'s cached geo and re-verifies the whole pool.');">
+        @csrf
+        <button class="btn btn-danger" type="submit" title="Hard reset: clear cached geo for every proxy across all providers and re-verify the whole pool">⟲ Hard reset · all</button>
+      </form>
+    </div>
+  </div>
+  @foreach ($proxies as $proxy)
+    @php $formId = 'proxy-update-'.$proxy->id; @endphp
+    <form id="{{ $formId }}" method="post" action="{{ route('static-proxies.update', $proxy) }}" hidden>
+      @csrf
+      @method('PUT')
+    </form>
+  @endforeach
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Provider</th>
+          <th>Label</th>
+          <th>Location</th>
+          <th>Live (ipinfo geo)</th>
+          <th>Enabled</th>
+          <th>Connection</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      @forelse ($proxies as $proxy)
+      @php $formId = 'proxy-update-'.$proxy->id; $connId = 'proxy-conn-'.$proxy->id; @endphp
+      <tr>
+        <td>
+          <select form="{{ $formId }}" name="provider" style="min-width:110px">
+            <option value="" @selected(! $proxy->provider)>Other</option>
+            @foreach ($providers as $key => $label)
+              <option value="{{ $key }}" @selected($proxy->provider === $key)>{{ $label }}</option>
+            @endforeach
+          </select>
+        </td>
+        <td>
+          <input type="hidden" form="{{ $formId }}" name="network_type" value="{{ $proxy->network_type }}">
+          <input form="{{ $formId }}" name="label" value="{{ $proxy->label }}" placeholder="—" style="min-width:120px">
+          @if ($proxy->network_type)<small class="role-chip {{ $proxy->network_type === 'mobile' ? 'on' : '' }}">{{ strtoupper($proxy->network_type) }}</small>@endif
+        </td>
+        <td><input form="{{ $formId }}" name="location" value="{{ $proxy->location }}" placeholder="—" style="min-width:100px"></td>
+        <td>
+          @php
+            $dispTz = config('app.display_timezone') ?: config('app.timezone');
+            $lastCheckLabel = $proxy->last_checked_at
+              ? $proxy->last_checked_at->copy()->setTimezone($dispTz)->format('d.m.Y H:i')
+              : null;
+          @endphp
+          <span class="svc-status state-{{ $proxy->checkState() }}" title="{{ $lastCheckLabel ? 'Last check '.$lastCheckLabel.' (GMT+1)' : 'Not checked yet' }}">
+            <span class="dot"></span>{{ $proxy->last_check_status ?: 'untested' }}
+          </span>
+          @if ($proxy->last_checked_at)
+            <small class="muted" style="display:block;margin-top:4px">Last check {{ $lastCheckLabel }} (GMT+1) · {{ $proxy->last_checked_at->diffForHumans() }}</small>
+          @else
+            <small class="muted" style="display:block;margin-top:4px">Not checked yet</small>
+          @endif
+          @if ($proxy->exit_ip || $proxy->exit_country)
+          <div class="geo-lines">
+            <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($proxy->exit_country) }} {{ $proxy->exit_country ?: '—' }}</span>
+            <span><b>Region</b>{{ $proxy->exit_region ?: '—' }}</span>
+            <span><b>City</b>{{ $proxy->exit_city ?: '—' }}</span>
+            <span><b>ISP</b>{{ $proxy->exit_isp ?: '—' }}</span>
+            <span><b>IP</b>{{ $proxy->exit_ip ?: '—' }}</span>
+          </div>
+          @endif
+        </td>
+        <td>
+          <label class="switch-row" style="margin:0;padding:8px 10px">
+            <input form="{{ $formId }}" type="checkbox" name="enabled" value="1" @checked($proxy->enabled)>
+            <span class="switch"></span>
+          </label>
+        </td>
+        <td><button type="button" class="mini-btn ghost proxy-conn-toggle" data-target="{{ $connId }}">Show ▾</button></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-secondary" type="submit" form="{{ $formId }}">Save</button>
+          <form method="post" action="{{ route('static-proxies.check', $proxy) }}" style="display:inline;margin-left:6px">
+            @csrf
+            <button class="btn btn-secondary" type="submit">Check</button>
+          </form>
+          <form method="post" action="{{ route('static-proxies.destroy', $proxy) }}" style="display:inline;margin-left:6px" onsubmit="return confirm('Delete this proxy?');">
+            @csrf
+            @method('DELETE')
+            <button class="btn btn-danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="{{ $connId }}" class="proxy-conn-row" hidden>
+        <td colspan="7">
+          <div class="conn-grid">
+            <div><label>Host</label><input form="{{ $formId }}" name="host" value="{{ $proxy->host }}" required></div>
+            <div><label>Port</label><input form="{{ $formId }}" type="number" name="port" value="{{ $proxy->port }}" min="1" max="65535" required></div>
+            <div><label>Protocol</label>
+              <select form="{{ $formId }}" name="protocol">
+                <option value="http" @selected($proxy->protocol === 'http')>HTTP</option>
+                <option value="socks5" @selected($proxy->protocol === 'socks5')>SOCKS5</option>
+              </select>
+            </div>
+            <div><label>Username</label><input form="{{ $formId }}" name="username" value="{{ $proxy->username }}" placeholder="—"></div>
+            <div><label>Password</label><input form="{{ $formId }}" type="password" name="password" placeholder="{{ $proxy->password ? '••••••••' : '—' }}"></div>
+          </div>
+        </td>
+      </tr>
+      @empty
+      <tr><td colspan="7" class="empty">No static proxies{{ $provider ? ' for '.$providerLabel($provider) : '' }} yet. Add or import below.</td></tr>
+      @endforelse
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
     <div><h2>ProxyCheap API sync</h2><p>Pull active <strong>mobile</strong> proxies directly from your ProxyCheap account (residential skipped)</p></div>
     <span class="status-light state-{{ $proxyCheapConfigured ? 'up' : 'unknown' }}"><span class="dot"></span>{{ $proxyCheapConfigured ? 'Connected' : 'Not configured' }}</span>
   </div>
@@ -124,123 +255,4 @@
   </div>
 </div>
 
-<div class="panel">
-  <div class="panel-head">
-    <div><h2>Proxy pool {{ $provider ? '· '.$providerLabel($provider) : '' }}</h2><p>Edit inline, toggle enabled, or check live status via ipinfo.io</p></div>
-    <div class="pool-actions">
-      <form method="post" action="{{ route('static-proxies.check-all') }}" style="margin:0">
-        @csrf
-        <input type="hidden" name="provider" value="{{ $provider }}">
-        <button class="btn btn-secondary" type="submit">🌐 Check all live</button>
-      </form>
-      <a class="btn btn-secondary" href="{{ route('static-proxies.export-credentials') }}" title="Download host/port/username/password for every ProxyCheap + MobileHop proxy">⬇ Export credentials</a>
-      <form method="post" action="{{ route('static-proxies.change-ip-proxycheap') }}" style="margin:0">
-        @csrf
-        <button class="btn btn-secondary" type="submit" title="Re-verify current exit IPs for all ProxyCheap proxies (they rotate automatically)">🔄 Change IP · ProxyCheap</button>
-      </form>
-      <form method="post" action="{{ route('static-proxies.soft-reset-mobilehop') }}" style="margin:0" onsubmit="return confirm('Soft reset all MobileHop proxies? This clears their cached geo and re-verifies current IPs.');">
-        @csrf
-        <button class="btn btn-secondary" type="submit" title="Fast/soft reset: clear cached geo for all MobileHop proxies and re-verify current IPs">♻ Soft reset · MobileHop</button>
-      </form>
-      <form method="post" action="{{ route('static-proxies.hard-reset-all') }}" style="margin:0" onsubmit="return confirm('Hard reset ALL proxies (ProxyCheap + MobileHop)? This clears every proxy\'s cached geo and re-verifies the whole pool.');">
-        @csrf
-        <button class="btn btn-danger" type="submit" title="Hard reset: clear cached geo for every proxy across all providers and re-verify the whole pool">⟲ Hard reset · all</button>
-      </form>
-    </div>
-  </div>
-  @foreach ($proxies as $proxy)
-    @php $formId = 'proxy-update-'.$proxy->id; @endphp
-    <form id="{{ $formId }}" method="post" action="{{ route('static-proxies.update', $proxy) }}" hidden>
-      @csrf
-      @method('PUT')
-    </form>
-  @endforeach
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Provider</th>
-          <th>Label</th>
-          <th>Location</th>
-          <th>Live (ipinfo geo)</th>
-          <th>Enabled</th>
-          <th>Connection</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-      @forelse ($proxies as $proxy)
-      @php $formId = 'proxy-update-'.$proxy->id; $connId = 'proxy-conn-'.$proxy->id; @endphp
-      <tr>
-        <td>
-          <select form="{{ $formId }}" name="provider" style="min-width:110px">
-            <option value="" @selected(! $proxy->provider)>Other</option>
-            @foreach ($providers as $key => $label)
-              <option value="{{ $key }}" @selected($proxy->provider === $key)>{{ $label }}</option>
-            @endforeach
-          </select>
-        </td>
-        <td>
-          <input type="hidden" form="{{ $formId }}" name="network_type" value="{{ $proxy->network_type }}">
-          <input form="{{ $formId }}" name="label" value="{{ $proxy->label }}" placeholder="—" style="min-width:120px">
-          @if ($proxy->network_type)<small class="role-chip {{ $proxy->network_type === 'mobile' ? 'on' : '' }}">{{ strtoupper($proxy->network_type) }}</small>@endif
-        </td>
-        <td><input form="{{ $formId }}" name="location" value="{{ $proxy->location }}" placeholder="—" style="min-width:100px"></td>
-        <td>
-          <span class="svc-status state-{{ $proxy->checkState() }}" title="{{ $proxy->last_checked_at ? 'Checked '.$proxy->last_checked_at->diffForHumans() : 'Not checked yet' }}">
-            <span class="dot"></span>{{ $proxy->last_check_status ?: 'untested' }}
-          </span>
-          @if ($proxy->exit_ip || $proxy->exit_country)
-          <div class="geo-lines">
-            <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($proxy->exit_country) }} {{ $proxy->exit_country ?: '—' }}</span>
-            <span><b>Region</b>{{ $proxy->exit_region ?: '—' }}</span>
-            <span><b>City</b>{{ $proxy->exit_city ?: '—' }}</span>
-            <span><b>ISP</b>{{ $proxy->exit_isp ?: '—' }}</span>
-            <span><b>IP</b>{{ $proxy->exit_ip ?: '—' }}</span>
-          </div>
-          @endif
-        </td>
-        <td>
-          <label class="switch-row" style="margin:0;padding:8px 10px">
-            <input form="{{ $formId }}" type="checkbox" name="enabled" value="1" @checked($proxy->enabled)>
-            <span class="switch"></span>
-          </label>
-        </td>
-        <td><button type="button" class="mini-btn ghost proxy-conn-toggle" data-target="{{ $connId }}">Show ▾</button></td>
-        <td style="white-space:nowrap">
-          <button class="btn btn-secondary" type="submit" form="{{ $formId }}">Save</button>
-          <form method="post" action="{{ route('static-proxies.check', $proxy) }}" style="display:inline;margin-left:6px">
-            @csrf
-            <button class="btn btn-secondary" type="submit">Check</button>
-          </form>
-          <form method="post" action="{{ route('static-proxies.destroy', $proxy) }}" style="display:inline;margin-left:6px" onsubmit="return confirm('Delete this proxy?');">
-            @csrf
-            @method('DELETE')
-            <button class="btn btn-danger" type="submit">Delete</button>
-          </form>
-        </td>
-      </tr>
-      <tr id="{{ $connId }}" class="proxy-conn-row" hidden>
-        <td colspan="7">
-          <div class="conn-grid">
-            <div><label>Host</label><input form="{{ $formId }}" name="host" value="{{ $proxy->host }}" required></div>
-            <div><label>Port</label><input form="{{ $formId }}" type="number" name="port" value="{{ $proxy->port }}" min="1" max="65535" required></div>
-            <div><label>Protocol</label>
-              <select form="{{ $formId }}" name="protocol">
-                <option value="http" @selected($proxy->protocol === 'http')>HTTP</option>
-                <option value="socks5" @selected($proxy->protocol === 'socks5')>SOCKS5</option>
-              </select>
-            </div>
-            <div><label>Username</label><input form="{{ $formId }}" name="username" value="{{ $proxy->username }}" placeholder="—"></div>
-            <div><label>Password</label><input form="{{ $formId }}" type="password" name="password" placeholder="{{ $proxy->password ? '••••••••' : '—' }}"></div>
-          </div>
-        </td>
-      </tr>
-      @empty
-      <tr><td colspan="7" class="empty">No static proxies{{ $provider ? ' for '.$providerLabel($provider) : '' }} yet. Add or import above.</td></tr>
-      @endforelse
-      </tbody>
-    </table>
-  </div>
-</div>
 @endsection
