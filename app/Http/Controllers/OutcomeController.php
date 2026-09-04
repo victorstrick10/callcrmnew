@@ -96,7 +96,7 @@ class OutcomeController extends Controller
             'perPage' => $perPageParam,
             'outcomes' => Appointment::OUTCOMES,
             'analytics' => $this->bucketizeCollection($all),
-            'trend' => $this->trend(),
+            'trend' => $this->trend($start, $end),
         ]);
     }
 
@@ -211,22 +211,50 @@ class OutcomeController extends Controller
     }
 
     /**
-     * Calls + deals per month for the last 12 months (chronological).
+     * Calls + deals per month, chronological. When a date range is supplied
+     * (from the active filter), only the months inside that range are returned,
+     * and partial first/last months are clamped to the exact range bounds — so
+     * "today" shows just today's counts, "this week" only this week, etc.
+     * With no bounds (All), it falls back to the last 12 months.
      *
-     * @return list<array{label:string,calls:int,deals:int}>
+     * @return list<array{label:string,calls:int,deals:int,outcomes:array}>
      */
-    private function trend(): array
+    private function trend(?Carbon $start = null, ?Carbon $end = null): array
     {
         $tz = config('app.display_timezone') ?: config('app.timezone');
-        $out = [];
 
-        for ($i = 11; $i >= 0; $i--) {
-            $monthStart = Carbon::now($tz)->startOfMonth()->subMonths($i);
-            $start = $monthStart->copy()->utc();
-            $end = $monthStart->copy()->addMonth()->utc();
+        if ($start && $end) {
+            $firstMonth = $start->copy()->setTimezone($tz)->startOfMonth();
+            $lastExclusive = $end->copy()->setTimezone($tz);
+        } else {
+            $firstMonth = Carbon::now($tz)->startOfMonth()->subMonths(11);
+            $lastExclusive = Carbon::now($tz)->startOfMonth()->addMonth();
+        }
+
+        $out = [];
+        $cursor = $firstMonth->copy();
+        $guard = 0;
+
+        while ($cursor->lt($lastExclusive) && $guard < 36) {
+            $guard++;
+            $monthStart = $cursor->copy();
+            $cursor = $cursor->copy()->addMonth();
+
+            // Query window (UTC), clamped to the active filter range.
+            $qStart = $monthStart->copy()->utc();
+            $qEnd = $monthStart->copy()->addMonth()->utc();
+            if ($start && $start->gt($qStart)) {
+                $qStart = $start->copy();
+            }
+            if ($end && $end->lt($qEnd)) {
+                $qEnd = $end->copy();
+            }
+            if ($qEnd->lte($qStart)) {
+                continue;
+            }
 
             $rows = Appointment::query()
-                ->whereBetween('start_time', [$start, $end])
+                ->whereBetween('start_time', [$qStart, $qEnd])
                 ->selectRaw('outcome, status, count(*) as c')
                 ->groupBy('outcome', 'status')
                 ->get();

@@ -38,6 +38,38 @@ class CallOutcomesTest extends TestCase
         ]);
     }
 
+    private function extractTrend(string $html): array
+    {
+        if (! preg_match('/window\.__trend\s*=\s*(\[.*?\]);/s', $html, $m)) {
+            return [];
+        }
+
+        return json_decode($m[1], true) ?: [];
+    }
+
+    public function test_outcome_analytics_trend_reflects_active_filter(): void
+    {
+        config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);
+        Carbon::setTestNow(Carbon::parse('2026-09-10 12:00:00', 'UTC'));
+
+        $this->seedCall('2026-09-10 09:00:00', 'today@example.com'); // today
+        $this->seedCall('2026-06-10 09:00:00', 'old@example.com');   // June (3 months back)
+
+        // "Today" filter: the monthly chart must cover only the current month and
+        // count just today's call — not the whole 12-month history.
+        $trendToday = $this->extractTrend($this->get(route('outcomes.index', ['range' => 'today']))->getContent());
+        $this->assertCount(1, $trendToday);
+        $this->assertSame('Sep 26', $trendToday[0]['label']);
+        $this->assertSame(1, $trendToday[0]['calls']);
+
+        // "Year" filter: the chart spans multiple months and includes June's call.
+        $trendYear = $this->extractTrend($this->get(route('outcomes.index', ['range' => 'year']))->getContent());
+        $labels = array_column($trendYear, 'label');
+        $this->assertGreaterThan(1, count($trendYear));
+        $this->assertContains('Jun 26', $labels);
+        $this->assertContains('Sep 26', $labels);
+    }
+
     public function test_outcomes_page_lists_calls_and_summary(): void
     {
         config(['app.timezone' => 'UTC', 'app.display_timezone' => 'Europe/Belgrade']);

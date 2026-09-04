@@ -8,6 +8,11 @@
 @php
   $dispTz = config('app.display_timezone') ?: config('app.timezone');
   $chip = fn ($r) => ($range ?? '') === $r ? 'chip-active' : '';
+  $rangeLabels = [
+    'today' => 'Today', 'this_week' => 'This week', 'last_week' => 'Last week',
+    'month' => 'This month', 'q3' => '3 months', 'q6' => '6 months', 'year' => 'Year',
+    'all' => 'All dates', 'custom' => 'Custom range',
+  ];
   $icons = [
     'scheduled'   => ['📅', 'Scheduled'],
     'joined_line' => ['🤝', 'Joined/LINE (deal closed)'],
@@ -192,7 +197,7 @@
 
 <div class="panel">
   <div class="panel-head">
-    <div><h2>Outcome analytics</h2><p>Reflects the {{ $summary['total'] }} call(s) in the current filter above — change the range/search to move the gauges</p></div>
+    <div><h2>Outcome analytics</h2><p>Reflects only the {{ $summary['total'] }} call(s) in the current filter above ({{ $rangeLabels[$range] ?? $range }}) — the gauges <em>and</em> the monthly chart follow the selected range/search</p></div>
   </div>
   <div class="analytics-grid">
     <div class="analytics-card">
