@@ -337,21 +337,31 @@ document.querySelectorAll('.proxy-conn-toggle').forEach((btn) => {
  * Non-today calls are left untouched. Re-runs every minute to stay in sync.
  */
 (function () {
-  function sameLocalDate(a, b) {
-    return a.getFullYear() === b.getFullYear()
-      && a.getMonth() === b.getMonth()
-      && a.getDate() === b.getDate();
+  const APP_TZ = (document.querySelector('meta[name="app-timezone"]') || {}).content || undefined;
+
+  // Calendar day (YYYY-MM-DD) for an instant, rendered in the app's display
+  // timezone so "today" always matches the on-screen (GMT+1) times, regardless
+  // of where the viewer's browser is located.
+  function dayKey(date) {
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: APP_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(date);
+    } catch (e) {
+      return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+    }
   }
 
   function markCalls() {
     const now = new Date();
+    const todayKey = dayKey(now);
     document.querySelectorAll('[data-call-start]').forEach((el) => {
       const iso = el.getAttribute('data-call-start');
       const start = iso ? new Date(iso) : null;
       const flag = el.querySelector ? el.querySelector('.call-flag') : null;
       el.classList.remove('call-passed', 'call-today', 'call-soon');
 
-      if (!start || isNaN(start.getTime()) || !sameLocalDate(start, now)) {
+      if (!start || isNaN(start.getTime()) || dayKey(start) !== todayKey) {
         if (flag) { flag.hidden = true; flag.textContent = ''; }
         return;
       }
