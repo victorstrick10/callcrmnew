@@ -376,6 +376,20 @@ a.stat-card.active{border-color:var(--primary);box-shadow:0 0 0 2px rgba(91,92,2
 .proxy-edit-form .mini-btn{margin-top:2px}
 .pool-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
 .pool-actions .btn{padding:9px 12px;font-size:13px;text-decoration:none;display:inline-block}
+/* Call-time highlighting — driven by the browser clock (see app.js). */
+tr.call-passed>td{background:rgba(220,63,81,.06)}
+tr.call-passed>td:first-child{box-shadow:inset 3px 0 0 #dc3f51}
+tr.call-today>td{background:rgba(22,163,106,.06)}
+tr.call-today>td:first-child{box-shadow:inset 3px 0 0 #16a36a}
+tr.call-soon>td{background:rgba(245,158,11,.10)}
+tr.call-soon>td:first-child{box-shadow:inset 3px 0 0 #f59e0b}
+.call-flag{display:inline-block;margin-left:6px;font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;vertical-align:middle;white-space:nowrap}
+.call-passed .call-flag{background:#fdecee;color:#b42337}
+.call-today .call-flag{background:#e7f7ef;color:#0f7a4d}
+.call-soon .call-flag{background:#fff3e0;color:#a15c00}
+.time-chip.call-passed{background:rgba(220,63,81,.12);color:#b42337;text-decoration:line-through;opacity:.85}
+.time-chip.call-today{background:rgba(22,163,106,.16);color:#0f7a4d;font-weight:700}
+.time-chip.call-soon{background:rgba(245,158,11,.2);color:#a15c00;font-weight:800}
 
 /* Static proxy connection details (collapsible) */
 .proxy-conn-row td{background:#fafbff}

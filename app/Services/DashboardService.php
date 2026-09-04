@@ -36,16 +36,22 @@ class DashboardService
             ->orderBy('start_time')
             ->get();
 
-        $times = $appointments
-            ->map(fn (Appointment $a) => $a->start_time?->copy()->setTimezone($tz)->format('H:i'))
+        $entries = $appointments
+            ->map(fn (Appointment $a) => $a->start_time ? [
+                'time' => $a->start_time->copy()->setTimezone($tz)->format('H:i'),
+                'iso' => $a->start_time->clone()->utc()->toIso8601String(),
+            ] : null)
             ->filter()
             ->values()
             ->all();
+
+        $times = array_map(fn ($e) => $e['time'], $entries);
 
         return [
             'date' => $start->format('D d.m.Y'),
             'count' => count($times),
             'times' => $times,
+            'entries' => $entries,
         ];
     }
 

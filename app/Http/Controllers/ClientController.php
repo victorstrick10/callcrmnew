@@ -387,6 +387,11 @@ class ClientController extends Controller
 
             $contact->next_call_at = $display?->localStart();
             $contact->next_call_status = $display?->status;
+            // Raw UTC start (ISO 8601) so the browser can flag calls that have
+            // already passed against the user's own local clock.
+            $contact->next_call_start_iso = $display && $display->start_time
+                ? $display->start_time->clone()->utc()->toIso8601String()
+                : null;
             $contact->calls_count = $contact->appointments->count();
             $contact->display_appointment_id = $display?->id;
 

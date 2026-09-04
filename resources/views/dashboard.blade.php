@@ -70,8 +70,8 @@
         <button type="button" class="btn btn-secondary copy-btn" data-copy="{{ $copyText }}">⧉ Copy</button>
       </div>
       <div class="times-list">
-        @forelse ($data['times'] as $t)
-          <span class="time-chip">{{ $t }}</span>
+        @forelse ($data['entries'] ?? [] as $e)
+          <span class="time-chip js-call-chip" data-call-start="{{ $e['iso'] }}">{{ $e['time'] }}</span>
         @empty
           <span class="muted">No calls scheduled.</span>
         @endforelse
@@ -145,9 +145,9 @@
           @php
             $roles = $a->profiles->whereIn('status', ['reserved','created'])->pluck('profile_role')->unique();
           @endphp
-          <tr class="click-row" data-href="{{ route('appointments.show', $a) }}">
+          <tr class="click-row js-call-row" data-href="{{ route('appointments.show', $a) }}" @if($a->start_time) data-call-start="{{ $a->start_time->clone()->utc()->toIso8601String() }}" @endif>
             <td><strong>{{ $a->contact->full_name }}</strong><small>{{ $a->company?->name }}</small></td>
-            <td>{{ $a->localStart() ? $a->localStart()->format('d.m.Y H:i') : 'Not set' }}</td>
+            <td>{{ $a->localStart() ? $a->localStart()->format('d.m.Y H:i') : 'Not set' }} <span class="call-flag" hidden></span></td>
             <td>{{ \App\Support\CountryFlag::emoji($a->country_code) }} {{ $a->city ?: 'Unknown' }}@if($a->region), {{ $a->region }}@endif</td>
             <td>
               @unless($roles->contains('geo'))<span class="badge badge-reserved">GEO</span>@endunless

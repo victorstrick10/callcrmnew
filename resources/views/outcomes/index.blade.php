@@ -109,7 +109,7 @@
       <tbody>
       @forelse ($appointments as $a)
         @php $isCustom = $a->hasCustomOutcome(); $eff = $a->effectiveOutcome(); @endphp
-        <tr class="oc-row oc-{{ $a->outcome }}">
+        <tr class="oc-row js-call-row oc-{{ $a->outcome }}" @if($a->start_time) data-call-start="{{ $a->start_time->clone()->utc()->toIso8601String() }}" @endif>
           <td class="col-lead">
             <strong>{{ $a->contact?->full_name ?: '—' }}</strong>
             <small>{{ $a->contact?->email }}</small>
@@ -119,6 +119,7 @@
             @if ($a->localStart())
               <strong>{{ $a->localStart()->format('d.m.Y H:i') }}</strong>
               <small>{{ $a->status }}</small>
+              <span class="call-flag" hidden></span>
             @else
               <span class="muted">Not set</span>
             @endif

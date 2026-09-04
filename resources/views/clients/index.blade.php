@@ -155,7 +155,7 @@
             'lead_raw_json' => $c->lead_raw_json,
           ];
         @endphp
-        <tr class="lead-row" tabindex="0" data-lead='@json($payload)'>
+        <tr class="lead-row js-call-row" tabindex="0" data-lead='@json($payload)' @if($c->next_call_start_iso) data-call-start="{{ $c->next_call_start_iso }}" @endif>
           <td>
             @if ($c->display_appointment_id)
               <input class="client-appointment-check" type="checkbox" value="{{ $c->display_appointment_id }}">
@@ -171,6 +171,7 @@
             @if ($c->next_call_at)
               <strong>{{ $c->next_call_at->format('d.m.Y H:i') }}</strong>
               <small>{{ $c->next_call_status }}</small>
+              <span class="call-flag" hidden></span>
             @else
               <span class="muted">Not set</span>
             @endif

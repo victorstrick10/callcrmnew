@@ -326,3 +326,58 @@ document.querySelectorAll('.proxy-conn-toggle').forEach((btn) => {
     });
   });
 })();
+
+/*
+ * Call-time highlighting. Uses the BROWSER's own clock so "today" and "passed"
+ * are 100% accurate to the viewer's local date/time, regardless of the server
+ * timezone. Any element carrying `data-call-start` (ISO 8601) is classified:
+ *   - call-passed : today's call whose time is already in the past
+ *   - call-soon   : today's call starting within the next 60 minutes
+ *   - call-today  : today's call still upcoming
+ * Non-today calls are left untouched. Re-runs every minute to stay in sync.
+ */
+(function () {
+  function sameLocalDate(a, b) {
+    return a.getFullYear() === b.getFullYear()
+      && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate();
+  }
+
+  function markCalls() {
+    const now = new Date();
+    document.querySelectorAll('[data-call-start]').forEach((el) => {
+      const iso = el.getAttribute('data-call-start');
+      const start = iso ? new Date(iso) : null;
+      const flag = el.querySelector ? el.querySelector('.call-flag') : null;
+      el.classList.remove('call-passed', 'call-today', 'call-soon');
+
+      if (!start || isNaN(start.getTime()) || !sameLocalDate(start, now)) {
+        if (flag) { flag.hidden = true; flag.textContent = ''; }
+        return;
+      }
+
+      const diffMin = (start.getTime() - now.getTime()) / 60000;
+      if (diffMin < 0) {
+        el.classList.add('call-passed');
+        if (flag) { flag.hidden = false; flag.textContent = '✓ passed'; }
+      } else if (diffMin <= 60) {
+        el.classList.add('call-today', 'call-soon');
+        if (flag) { flag.hidden = false; flag.textContent = '● soon'; }
+      } else {
+        el.classList.add('call-today');
+        if (flag) { flag.hidden = false; flag.textContent = '● today'; }
+      }
+    });
+  }
+
+  function init() {
+    markCalls();
+    setInterval(markCalls, 60000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
