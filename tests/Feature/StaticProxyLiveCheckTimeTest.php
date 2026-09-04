@@ -61,4 +61,22 @@ class StaticProxyLiveCheckTimeTest extends TestCase
 
         $this->assertStringContainsString('Not checked yet', $html);
     }
+
+    public function test_proxy_pool_appears_above_sync_import_and_add_sections(): void
+    {
+        $html = $this->get(route('static-proxies.index'))->assertOk()->getContent();
+
+        $poolPos = strpos($html, 'Proxy pool');
+        $syncPos = strpos($html, 'ProxyCheap API sync');
+        $importPos = strpos($html, 'Bulk import — MobileHop');
+        $addPos = strpos($html, 'Add one proxy');
+
+        $this->assertNotFalse($poolPos);
+        $this->assertNotFalse($syncPos);
+        $this->assertNotFalse($importPos);
+        $this->assertNotFalse($addPos);
+        $this->assertTrue($poolPos < $syncPos, 'Proxy pool should appear above ProxyCheap API sync');
+        $this->assertTrue($syncPos < $importPos, 'ProxyCheap API sync should appear above Bulk import');
+        $this->assertTrue($importPos < $addPos, 'Bulk import should appear above Add one proxy');
+    }
 }
