@@ -51,7 +51,7 @@ setTimeout(() => {
       return loc ? `${flag(a.country_code)} ${escapeHtml(loc)}` : '<span class="muted">Not enriched</span>';
     };
     const callsHtml = calls.length
-      ? `<div class="modal-section"><h3>Calls &amp; devices</h3>${multiHint}<div class="table-wrap"><table><thead><tr><th>Event</th><th>Start</th><th>Status</th><th>Device IP</th><th>Geo (IPinfo)</th><th>ISP</th></tr></thead><tbody>${
+      ? `<div class="modal-section"><h3>Calls &amp; devices</h3>${multiHint}<div class="table-wrap"><table><thead><tr><th>Event</th><th>Start</th><th>Status</th><th>Device IP</th><th>Geo (ip-api)</th><th>ISP</th></tr></thead><tbody>${
           calls.map((a) => `<tr><td>${escapeHtml(a.event_name)}<small>#${escapeHtml(a.id)}</small></td><td>${escapeHtml(a.start_time || '—')}</td><td><span class="badge badge-${escapeHtml(a.status || '')}">${escapeHtml(a.status || '—')}</span></td><td><code>${escapeHtml(a.ip || '—')}</code></td><td>${geoCell(a)}</td><td>${escapeHtml(a.isp || '—')}</td></tr>`).join('')
         }</tbody></table></div></div>`
       : '<div class="modal-section"><h3>Calls &amp; devices</h3><p class="muted">No calls linked yet.</p></div>';
@@ -159,7 +159,7 @@ setTimeout(() => {
   });
 })();
 
-// Integrations: simple in-page tab sub-menu (IPinfo / Multilogin / Sync & Status).
+// Integrations: simple in-page tab sub-menu (Geo / Multilogin / Sync & Status).
 (function initTabs() {
   const tabs = Array.from(document.querySelectorAll('.tab-btn'));
   if (!tabs.length) return;

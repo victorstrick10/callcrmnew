@@ -39,7 +39,7 @@ class StaticProxyAdminActionsTest extends TestCase
 
     public function test_soft_reset_mobilehop_clears_and_reverifies_only_mobilehop(): void
     {
-        Http::fake(['ipinfo.io/*' => Http::response(['ip' => '9.9.9.9', 'country' => 'US', 'org' => 'AS1 Carrier'], 200)]);
+        Http::fake(['ip-api.com/*' => Http::response(['status' => 'success', 'query' => '9.9.9.9', 'countryCode' => 'US', 'isp' => 'Carrier'], 200)]);
 
         $mh = StaticProxy::create([
             'provider' => 'mobilehop', 'network_type' => 'mobile', 'label' => 'mh', 'host' => 'mh.com', 'port' => 1,
@@ -61,7 +61,7 @@ class StaticProxyAdminActionsTest extends TestCase
 
     public function test_hard_reset_all_reverifies_every_provider(): void
     {
-        Http::fake(['ipinfo.io/*' => Http::response(['ip' => '5.5.5.5', 'country' => 'GB', 'org' => 'AS2 Carrier'], 200)]);
+        Http::fake(['ip-api.com/*' => Http::response(['status' => 'success', 'query' => '5.5.5.5', 'countryCode' => 'GB', 'isp' => 'Carrier'], 200)]);
 
         $mh = StaticProxy::create([
             'provider' => 'mobilehop', 'network_type' => 'mobile', 'label' => 'mh', 'host' => 'mh.com', 'port' => 1,
@@ -81,7 +81,7 @@ class StaticProxyAdminActionsTest extends TestCase
 
     public function test_change_ip_proxycheap_only_touches_proxycheap(): void
     {
-        Http::fake(['ipinfo.io/*' => Http::response(['ip' => '7.7.7.7', 'country' => 'FR', 'org' => 'AS3 Carrier'], 200)]);
+        Http::fake(['ip-api.com/*' => Http::response(['status' => 'success', 'query' => '7.7.7.7', 'countryCode' => 'FR', 'isp' => 'Carrier'], 200)]);
 
         $pc = StaticProxy::create([
             'provider' => 'proxycheap', 'network_type' => 'mobile', 'label' => 'pc', 'host' => 'pc.com', 'port' => 2,

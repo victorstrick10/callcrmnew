@@ -10,7 +10,7 @@ class CheckStaticProxiesCommand extends Command
 {
     protected $signature = 'proxies:check {--limit=100}';
 
-    protected $description = 'Check enabled static proxies via ipinfo (liveness + exit geo)';
+    protected $description = 'Check enabled static proxies via ip-api.com (liveness + exit geo)';
 
     public function handle(StaticProxyService $service): int
     {

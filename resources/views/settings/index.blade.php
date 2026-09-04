@@ -2,7 +2,7 @@
 
 @section('title', 'Integrations')
 @section('page_title', 'Integration Settings')
-@section('page_subtitle', 'IPinfo geo token lives here — Calendly & Multilogin are configured per company')
+@section('page_subtitle', 'Geolocation runs on ip-api.com (no key needed) — Calendly & Multilogin are configured per company')
 
 @section('content')
 @php
@@ -15,34 +15,31 @@
 @endphp
 
 <div class="tabs" role="tablist">
-  <button class="tab-btn" data-tab="ipinfo" type="button">🌐 IPinfo</button>
+  <button class="tab-btn" data-tab="ipinfo" type="button">🌐 Geo (ip-api.com)</button>
   <button class="tab-btn" data-tab="sync" type="button">🔄 Sync &amp; Status</button>
 </div>
 
-{{-- ============ IPinfo ============ --}}
+{{-- ============ Geolocation (ip-api.com) ============ --}}
 <div class="tab-panel" data-tab-panel="ipinfo">
   <div class="panel integration-card wide">
     <div class="integration-head">
       <div class="integration-icon ip">IP</div>
-      <div><h2>IPinfo</h2><p>Geolocation token — reads each lead's city/region/ISP from its IP</p></div>
+      <div><h2>Geolocation · ip-api.com</h2><p>Reads each lead's country/region/city/ISP from its IP — no API key required</p></div>
       <span class="status-light state-{{ $providerState('ipinfo') }}" title="{{ $rows['ipinfo']->last_test_message ?? 'Not tested yet' }}">
         <span class="dot"></span>{{ $stateText[$providerState('ipinfo')] }}
       </span>
     </div>
-    <form method="post" action="{{ route('settings.store') }}">
+    <form method="post" action="{{ route('settings.test', 'ipinfo') }}">
       @csrf
-      <input type="hidden" name="provider" value="ipinfo">
-      <label>API token <span>{{ $masked($ipinfo['api_token'] ?? '') }}</span></label>
-      <input type="password" name="api_token" placeholder="Leave blank to keep saved token">
+      <div class="notice">Geolocation uses the free <strong>ip-api.com</strong> endpoint — no key or token to manage. It resolves Country · Region · City · ISP for each lead and each proxy exit IP. Free tier allows 45 lookups/minute.</div>
       <div class="form-actions">
-        <button class="btn btn-primary" type="submit">Save IPinfo</button>
-        <button class="btn btn-secondary" formaction="{{ route('settings.test', 'ipinfo') }}" formmethod="post" type="submit">Test connection</button>
+        <button class="btn btn-secondary" type="submit">Test connection</button>
       </div>
     </form>
     @if (!empty($rows['ipinfo']?->last_test_message))
     <p class="test-message state-{{ $providerState('ipinfo') }}">Last test: {{ $rows['ipinfo']->last_test_message }} <span class="muted">({{ optional($rows['ipinfo']->updated_at)->diffForHumans() }})</span></p>
     @endif
-    <div class="notice" style="margin-top:16px">When a Calendly call arrives, the lead's geo is read automatically with this token — no manual step needed.</div>
+    <div class="notice" style="margin-top:16px">When a Calendly call arrives, the lead's geo is read automatically via ip-api.com — no manual step needed.</div>
   </div>
 </div>
 
@@ -53,20 +50,20 @@
     <div class="sync-flow big">
       <span class="sync-step"><b>1</b> Calendly call arrives<small>Webhook or scheduled sync (every 15 min)</small></span>
       <i>→</i>
-      <span class="sync-step"><b>2</b> IPinfo reads lead geo<small>City, region, ISP resolved from the lead's IP</small></span>
+      <span class="sync-step"><b>2</b> ip-api.com reads lead geo<small>City, region, ISP resolved from the lead's IP</small></span>
       <i>→</i>
       <span class="sync-step"><b>3</b> Build Multilogin profile<small>GEO uses a matched proxy; STATIC uses your pool</small></span>
     </div>
   </div>
 
   <div class="panel">
-    <div class="panel-head"><div><h2>Service status</h2><p>IPinfo is global; Calendly &amp; Multilogin are per company</p></div></div>
+    <div class="panel-head"><div><h2>Service status</h2><p>Geolocation (ip-api.com) is global; Calendly &amp; Multilogin are per company</p></div></div>
     <div class="status-table">
       @php $state = $providerState('ipinfo'); $row = $rows['ipinfo'] ?? null; @endphp
       <div class="status-row state-{{ $state }}">
         <span class="status-light state-{{ $state }}"><span class="dot"></span>{{ $stateText[$state] }}</span>
         <div class="status-row-main">
-          <strong>IPinfo</strong>
+          <strong>Geo · ip-api.com</strong>
           <small>{{ $row?->last_test_message ?: 'Not tested yet — click Test connection.' }}</small>
         </div>
         <span class="muted">{{ optional($row?->updated_at)->diffForHumans() ?? '—' }}</span>

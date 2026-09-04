@@ -74,7 +74,7 @@ class CreateStaticProfileTest extends TestCase
                 && ($body['parameters']['proxy']['port'] ?? null) === $proxy['port']
                 && ($body['parameters']['flags']['proxy_masking'] ?? null) === 'custom'
                 && ($body['parameters']['flags']['startup_behavior'] ?? null) === 'custom'
-                && ($body['parameters']['custom_start_urls'] ?? null) === ['https://ipinfo.io/json']
+                && ($body['parameters']['custom_start_urls'] ?? null) === ['http://ip-api.com/json/']
                 && ($body['parameters']['fingerprint'] ?? null) === [];
         });
 

@@ -31,7 +31,7 @@
 
 <div class="panel">
   <div class="panel-head">
-    <div><h2>Proxy pool {{ $provider ? '· '.$providerLabel($provider) : '' }}</h2><p>Edit inline, toggle enabled, or check live status via ipinfo.io</p></div>
+    <div><h2>Proxy pool {{ $provider ? '· '.$providerLabel($provider) : '' }}</h2><p>Edit inline, toggle enabled, or check live status via ip-api.com</p></div>
     <div class="pool-actions">
       <form method="post" action="{{ route('static-proxies.check-all') }}" style="margin:0">
         @csrf
@@ -67,7 +67,7 @@
           <th>Provider</th>
           <th>Label</th>
           <th>Location</th>
-          <th>Live (ipinfo geo)</th>
+          <th>Live (ip-api geo)</th>
           <th>Enabled</th>
           <th>Connection</th>
           <th></th>

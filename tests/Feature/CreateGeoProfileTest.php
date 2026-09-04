@@ -74,7 +74,7 @@ class CreateGeoProfileTest extends TestCase
             return ($body['name'] ?? null) === '001 - Client - GEO'
                 && ($body['folder_id'] ?? null) === 'geo-folder-1'
                 && ($body['parameters']['flags']['startup_behavior'] ?? null) === 'custom'
-                && ($body['parameters']['custom_start_urls'] ?? null) === ['https://ipinfo.io/json']
+                && ($body['parameters']['custom_start_urls'] ?? null) === ['http://ip-api.com/json/']
                 && ($body['parameters']['proxy']['host'] ?? null) === 'gate.multilogin.com';
         });
     }

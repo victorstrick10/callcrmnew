@@ -29,7 +29,6 @@ class ProxyOverridesTest extends TestCase
     private function bootSettings(): void
     {
         $settings = app(IntegrationSettingsService::class);
-        $settings->saveSettings('ipinfo', ['api_token' => 'ip-token']);
         $settings->saveSettings('multilogin', [
             'automation_token' => 't',
             'base_url' => 'https://api.multilogin.com',
@@ -43,7 +42,7 @@ class ProxyOverridesTest extends TestCase
 
         Http::fake([
             'profile-proxy.multilogin.com/*' => Http::response(['data' => 'gate.multilogin.com:8080:user:pass'], 200),
-            'ipinfo.io/*' => Http::response(['ip' => '1.2.3.4', 'city' => 'Geneva', 'region' => 'Geneva', 'country' => 'CH', 'org' => 'AS1234 Sunrise'], 200),
+            'ip-api.com/*' => Http::response(['status' => 'success', 'query' => '1.2.3.4', 'city' => 'Geneva', 'regionName' => 'Geneva', 'countryCode' => 'CH', 'isp' => 'Sunrise', 'as' => 'AS1234 Sunrise'], 200),
         ]);
 
         $client = new MultiloginClient('t', 'https://api.multilogin.com');
@@ -84,7 +83,7 @@ class ProxyOverridesTest extends TestCase
         // never the client's "Zscaler" ISP.
         Http::fake([
             'profile-proxy.multilogin.com/*' => Http::response(['data' => 'gate.multilogin.com:8080:user:pass'], 200),
-            'ipinfo.io/*' => Http::response('', 500),
+            'ip-api.com/*' => Http::response('', 500),
         ]);
 
         $client = new MultiloginClient('t', 'https://api.multilogin.com');

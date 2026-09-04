@@ -18,13 +18,13 @@
 
   @php($sys = $systemStatus ?? null)
   @if ($sys)
-  <a class="sidebar-status" href="{{ route('settings.index', ['tab' => 'sync']) }}" title="How sync works: a Calendly call arrives → IPinfo reads the lead geo from its IP → you build a Multilogin browser profile. Auto-sync runs {{ $sys['auto_sync'] }}.">
+  <a class="sidebar-status" href="{{ route('settings.index', ['tab' => 'sync']) }}" title="How sync works: a Calendly call arrives → ip-api.com reads the lead geo from its IP → you build a Multilogin browser profile. Auto-sync runs {{ $sys['auto_sync'] }}.">
     <div class="sidebar-status-head">
       <span class="status-dot {{ $sys['healthy'] ? 'ok' : 'warn' }}"></span>
       <strong>System status</strong>
     </div>
     <div class="svc-dots">
-      <span class="svc-dot state-{{ $sys['ipinfo']['state'] }}">IPinfo</span>
+      <span class="svc-dot state-{{ $sys['ipinfo']['state'] }}">Geo</span>
       <span class="svc-dot state-{{ $sys['multilogin']['state'] }}">Multilogin</span>
       <span class="svc-dot state-{{ $sys['calendly']['configured'] ? 'up' : 'missing' }}">Calendly</span>
     </div>

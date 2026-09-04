@@ -58,26 +58,21 @@ class AppointmentService
             return false;
         }
 
-        // Already geolocated — do not spend another IPinfo lookup.
+        // Already geolocated — do not spend another geo lookup.
         if (trim((string) ($appointment->country_code ?: $appointment->country)) !== '') {
-            return false;
-        }
-
-        $token = $this->settings->getSettings('ipinfo')['api_token'] ?? '';
-        if (! $token) {
             return false;
         }
 
         try {
             $this->enrich($appointment);
             $this->audit->log(
-                'Auto IPinfo enrichment on intake',
+                'Auto geo enrichment on intake',
                 "Appointment #{$appointment->id}: {$appointment->city}, {$appointment->region}, {$appointment->country}"
             );
 
             return true;
         } catch (Throwable $e) {
-            $this->audit->log('Auto IPinfo enrichment failed', "Appointment #{$appointment->id}: {$e->getMessage()}");
+            $this->audit->log('Auto geo enrichment failed', "Appointment #{$appointment->id}: {$e->getMessage()}");
 
             return false;
         }
@@ -117,9 +112,9 @@ class AppointmentService
      */
     public function enrichPending(int $limit = 200): array
     {
-        if (! ($this->settings->getSettings('ipinfo')['api_token'] ?? '')) {
-            return ['enriched' => 0, 'failed' => 0, 'remaining' => 0];
-        }
+        // ip-api.com needs no API key; cap the batch so we stay under the free
+        // tier's 45 requests/min rate limit (per server IP).
+        $limit = max(1, min($limit, 40));
 
         $base = Appointment::query()
             ->whereNotNull('ip_address')
@@ -134,8 +129,12 @@ class AppointmentService
             try {
                 $this->enrich($appointment);
                 $enriched++;
-                usleep(120000); // gentle pacing for the IPinfo API
+                usleep(1400000); // ~1.4s pacing keeps us under ip-api's 45 req/min limit
             } catch (Throwable $e) {
+                // ip-api rate limit hit → stop this run, leave the rest for next time.
+                if (str_contains($e->getMessage(), 'rate limit')) {
+                    break;
+                }
                 $failed++;
                 // Mark as attempted so a single bad IP doesn't block the queue forever.
                 $appointment->forceFill(['geo_enriched_at' => now()])->save();

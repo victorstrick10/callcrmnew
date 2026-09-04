@@ -88,7 +88,7 @@
     </div>
     <div class="form-actions" style="margin:0">
       <form method="post" action="{{ route('numbers.sync-all') }}" class="js-progress" style="display:inline;margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Sync Multilogin profile numbers for all companies">↻ Sync numbers (all)</button></form>
-      <form method="post" action="{{ route('clients.enrich-geo') }}" style="display:inline;margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Run IPinfo geolocation for leads with an IP">🌐 Run IPinfo (geo)</button></form>
+      <form method="post" action="{{ route('clients.enrich-geo') }}" style="display:inline;margin:0">@csrf<button class="btn btn-secondary" type="submit" title="Run ip-api.com geolocation for leads with an IP">🌐 Run geo (ip-api)</button></form>
       <a class="btn btn-secondary" href="{{ route('clients.export', $baseQuery) }}">⭳ Export CSV</a>
       <button class="btn btn-primary" type="submit" form="bulkProfilesForm">＋ Create profiles (selected only)</button>
     </div>
@@ -103,7 +103,7 @@
           <th>{!! $sortLink('name', 'Lead') !!}</th>
           <th>{!! $sortLink('company', 'Company') !!}</th>
           <th>{!! $sortLink('call', 'Scheduled call') !!}</th>
-          <th>{!! $sortLink('location', 'GEO (IPinfo)') !!}</th>
+          <th>{!! $sortLink('location', 'GEO (ip-api)') !!}</th>
           <th>Our Proxy <small>(static)</small></th>
           <th>Multilogin Proxy <small>(geo)</small></th>
           <th>Profiles</th>
@@ -349,7 +349,7 @@
           </tbody>
         </table>
       </div>
-      <p class="muted" style="margin-top:8px">Selecting a proxy <strong>assigns</strong> it to the lead — then click <strong>STATIC</strong> to create the profile with it. Geo comes from IPinfo checks; if empty, run <strong>Static Proxies → Check all live</strong>.</p>
+      <p class="muted" style="margin-top:8px">Selecting a proxy <strong>assigns</strong> it to the lead — then click <strong>STATIC</strong> to create the profile with it. Geo comes from ip-api.com checks; if empty, run <strong>Static Proxies → Check all live</strong>.</p>
     </div>
   </div>
 </div>

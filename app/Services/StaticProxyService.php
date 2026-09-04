@@ -27,33 +27,42 @@ class StaticProxyService
             $auth = rawurlencode($proxy->username).':'.rawurlencode((string) $proxy->password).'@';
         }
         $proxyUrl = "{$scheme}://{$auth}{$proxy->host}:{$proxy->port}";
-        $token = $this->settings->getSettings('ipinfo')['api_token'] ?? '';
 
         try {
+            // Route through the proxy to ip-api.com (no query = the proxy's exit
+            // IP). ip-api needs no key and is HTTP, which is more reliable through
+            // proxies than an HTTPS CONNECT tunnel.
             $response = Http::withOptions(['proxy' => $proxyUrl])
                 ->timeout(20)
-                ->get('https://ipinfo.io/json', array_filter(['token' => $token]));
+                ->get('http://ip-api.com/json/', [
+                    'fields' => 'status,message,countryCode,regionName,city,isp,org,as,query',
+                    'lang' => 'en',
+                ]);
 
-            if ($response->successful()) {
-                $j = is_array($response->json()) ? $response->json() : [];
-                $org = (string) ($j['org'] ?? '');
-                $isp = trim(preg_replace('/^AS\d+\s+/i', '', $org) ?? $org);
+            $j = is_array($response->json()) ? $response->json() : [];
+
+            if ($response->successful() && ($j['status'] ?? '') === 'success') {
+                $isp = trim((string) ($j['isp'] ?? ''));
+                if ($isp === '') {
+                    $isp = trim((string) ($j['org'] ?? '')) ?: trim(preg_replace('/^AS\d+\s+/i', '', (string) ($j['as'] ?? '')) ?? '');
+                }
                 $proxy->forceFill([
                     'last_check_status' => 'up',
-                    'exit_ip' => (string) ($j['ip'] ?? ''),
-                    'exit_country' => (string) ($j['country'] ?? ''),
-                    'exit_region' => (string) ($j['region'] ?? ''),
+                    'exit_ip' => (string) ($j['query'] ?? ''),
+                    'exit_country' => (string) ($j['countryCode'] ?? ''),
+                    'exit_region' => (string) ($j['regionName'] ?? ''),
                     'exit_city' => (string) ($j['city'] ?? ''),
                     'exit_isp' => $isp,
                     'last_checked_at' => now(),
                 ])->save();
 
-                return ['ok' => true, 'ip' => (string) ($j['ip'] ?? '')];
+                return ['ok' => true, 'ip' => (string) ($j['query'] ?? '')];
             }
 
             $proxy->forceFill(['last_check_status' => 'down', 'last_checked_at' => now()])->save();
+            $err = ($j['message'] ?? '') !== '' ? (string) $j['message'] : 'HTTP '.$response->status();
 
-            return ['ok' => false, 'error' => 'HTTP '.$response->status()];
+            return ['ok' => false, 'error' => $err];
         } catch (Throwable $e) {
             $proxy->forceFill(['last_check_status' => 'down', 'last_checked_at' => now()])->save();
 

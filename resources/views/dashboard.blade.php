@@ -198,7 +198,7 @@
     <div class="status-pill state-{{ $sys['ipinfo']['state'] }}">
       <span class="dot"></span>
       <div>
-        <strong>IPinfo</strong>
+        <strong>Geo · ip-api.com</strong>
         <small>{{ $stateLabel[$sys['ipinfo']['state']] ?? 'Unknown' }} · geo enrichment</small>
       </div>
     </div>
@@ -221,7 +221,7 @@
   <div class="sync-flow">
     <span class="sync-step"><b>1</b> Calendly call arrives</span>
     <i>→</i>
-    <span class="sync-step"><b>2</b> IPinfo reads lead geo from IP</span>
+    <span class="sync-step"><b>2</b> ip-api.com reads lead geo from IP</span>
     <i>→</i>
     <span class="sync-step"><b>3</b> Build Multilogin browser profile</span>
     <span class="sync-meta">Auto-sync {{ $sys['auto_sync'] }} · last run {{ $sys['last_sync_human'] }}</span>

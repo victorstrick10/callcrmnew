@@ -5,129 +5,98 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
+/**
+ * IP geolocation via ip-api.com (no API key required).
+ *
+ * Docs: https://ip-api.com/docs/api:json
+ *  - Base: http://ip-api.com/json/{query}
+ *  - Free tier is HTTP only and limited to 45 requests/min per IP.
+ *
+ * The returned array keeps the same normalized keys the rest of the app has
+ * always relied on (city/region/country/country_code/org/isp/asn/…) so callers
+ * did not need to change when we moved off ipinfo.io.
+ */
 class IpInfoService
 {
+    /** Named response fields we request from ip-api. */
+    private const FIELDS = 'status,message,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query';
+
     public function __construct(private IntegrationSettingsService $settings)
     {
     }
 
     /**
-     * Look up an IP using the IPinfo Core API (nested geo/as + network flags),
-     * falling back to the legacy flat endpoint for older tokens. Returns a
-     * normalized array with both the flat fields the app already relies on and
-     * the richer Core fields (region_code, ASN name/type, hosting/mobile flags).
+     * Look up a single IP (or domain) via ip-api.com and normalize the result.
+     *
+     * @return array<string,mixed>
      */
     public function lookup(string $ip): array
     {
-        $token = $this->token();
-
-        // IPinfo Core: https://api.ipinfo.io/lookup/{ip}?token=...
-        $response = Http::timeout(15)->get("https://api.ipinfo.io/lookup/{$ip}", [
-            'token' => $token,
+        $response = Http::timeout(15)->get('http://ip-api.com/json/'.rawurlencode($ip), [
+            'fields' => self::FIELDS,
+            'lang' => 'en',
         ]);
 
-        if ($response->successful() && is_array($response->json()) && isset($response->json()['geo'])) {
-            return $this->normalizeCore($response->json(), $ip);
+        if ($response->status() === 429) {
+            throw new RuntimeException('ip-api.com rate limit reached (45 req/min). Try again shortly.');
+        }
+        $response->throw();
+
+        $data = is_array($response->json()) ? $response->json() : [];
+        if (($data['status'] ?? '') !== 'success') {
+            $message = (string) ($data['message'] ?? 'unknown error');
+            throw new RuntimeException("ip-api.com lookup failed for {$ip}: {$message}");
         }
 
-        // Fallback: legacy flat endpoint.
-        $legacy = Http::timeout(15)->get("https://ipinfo.io/{$ip}/json", ['token' => $token]);
-        $legacy->throw();
-
-        return $this->normalizeLegacy($legacy->json(), $ip);
-    }
-
-    private function token(): string
-    {
-        $token = $this->settings->getSettings('ipinfo')['api_token'] ?? '';
-        if (! $token) {
-            throw new RuntimeException('IPinfo API token is not configured.');
-        }
-
-        return $token;
+        return $this->normalize($data, $ip);
     }
 
     /**
-     * @param  array<string,mixed>  $data
+     * Map ip-api's response onto the app's normalized geo shape.
+     *
+     * @param  array<string,mixed>  $d
+     * @return array<string,mixed>
      */
-    private function normalizeCore(array $data, string $ip): array
+    private function normalize(array $d, string $ip): array
     {
-        $geo = is_array($data['geo'] ?? null) ? $data['geo'] : [];
-        $as = is_array($data['as'] ?? null) ? $data['as'] : [];
-
-        return [
-            'ip' => $data['ip'] ?? $ip,
-            'hostname' => $data['hostname'] ?? '',
-            'city' => $geo['city'] ?? '',
-            'region' => $geo['region'] ?? '',
-            'region_code' => $geo['region_code'] ?? '',
-            'country' => $geo['country'] ?? '',
-            'country_code' => $geo['country_code'] ?? '',
-            'continent' => $geo['continent'] ?? '',
-            'postal' => $geo['postal_code'] ?? '',
-            'timezone' => $geo['timezone'] ?? '',
-            'latitude' => isset($geo['latitude']) ? (float) $geo['latitude'] : null,
-            'longitude' => isset($geo['longitude']) ? (float) $geo['longitude'] : null,
-            'asn' => $as['asn'] ?? '',
-            'asn_name' => $as['name'] ?? '',
-            'asn_domain' => $as['domain'] ?? '',
-            'asn_type' => $as['type'] ?? '',
-            'org' => trim((string) (($as['asn'] ?? '').' '.($as['name'] ?? ''))),
-            'isp' => $as['name'] ?? '',
-            'is_hosting' => (bool) ($data['is_hosting'] ?? false),
-            'is_mobile' => (bool) ($data['is_mobile'] ?? false),
-            'is_anonymous' => (bool) ($data['is_anonymous'] ?? false),
-            'is_anycast' => (bool) ($data['is_anycast'] ?? false),
-            'is_satellite' => (bool) ($data['is_satellite'] ?? false),
-            'raw' => $data,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $data
-     */
-    private function normalizeLegacy(array $data, string $ip): array
-    {
-        $lat = $lon = null;
-        if (! empty($data['loc'])) {
-            $parts = explode(',', $data['loc'], 2);
-            if (count($parts) === 2) {
-                $lat = (float) $parts[0];
-                $lon = (float) $parts[1];
-            }
+        $as = trim((string) ($d['as'] ?? ''));
+        $asn = '';
+        if ($as !== '' && preg_match('/^(AS\d+)/i', $as, $m)) {
+            $asn = strtoupper($m[1]);
         }
 
-        $org = (string) ($data['org'] ?? '');
-        $isp = is_array($data['company'] ?? null) ? ($data['company']['name'] ?? '') : '';
-        if (! $isp) {
-            $isp = trim(preg_replace('/^AS\d+\s+/i', '', $org) ?? $org);
+        // Prefer the human ISP name; fall back to org / AS name.
+        $isp = trim((string) ($d['isp'] ?? ''));
+        if ($isp === '') {
+            $isp = trim((string) ($d['org'] ?? '')) ?: trim((string) ($d['asname'] ?? ''));
         }
 
         return [
-            'ip' => $data['ip'] ?? $ip,
-            'hostname' => $data['hostname'] ?? '',
-            'city' => $data['city'] ?? '',
-            'region' => $data['region'] ?? '',
-            'region_code' => '',
-            'country' => $data['country'] ?? '',
-            'country_code' => $data['country'] ?? '',
-            'continent' => '',
-            'postal' => $data['postal'] ?? '',
-            'timezone' => $data['timezone'] ?? '',
-            'latitude' => $lat,
-            'longitude' => $lon,
-            'asn' => is_array($data['asn'] ?? null) ? ($data['asn']['asn'] ?? '') : '',
-            'asn_name' => $isp,
+            'ip' => (string) ($d['query'] ?? $ip),
+            'hostname' => '',
+            'city' => (string) ($d['city'] ?? ''),
+            // ip-api: regionName = full name (Quebec), region = short code (QC).
+            'region' => (string) ($d['regionName'] ?? ''),
+            'region_code' => (string) ($d['region'] ?? ''),
+            'country' => (string) ($d['country'] ?? ''),
+            'country_code' => (string) ($d['countryCode'] ?? ''),
+            'continent' => (string) ($d['continent'] ?? ''),
+            'postal' => (string) ($d['zip'] ?? ''),
+            'timezone' => (string) ($d['timezone'] ?? ''),
+            'latitude' => isset($d['lat']) ? (float) $d['lat'] : null,
+            'longitude' => isset($d['lon']) ? (float) $d['lon'] : null,
+            'asn' => $asn,
+            'asn_name' => (string) ($d['asname'] ?? $d['org'] ?? ''),
             'asn_domain' => '',
             'asn_type' => '',
-            'org' => $org,
+            'org' => $as !== '' ? $as : (string) ($d['org'] ?? ''),
             'isp' => $isp,
-            'is_hosting' => false,
-            'is_mobile' => false,
-            'is_anonymous' => false,
+            'is_hosting' => (bool) ($d['hosting'] ?? false),
+            'is_mobile' => (bool) ($d['mobile'] ?? false),
+            'is_anonymous' => (bool) ($d['proxy'] ?? false),
             'is_anycast' => false,
             'is_satellite' => false,
-            'raw' => $data,
+            'raw' => $d,
         ];
     }
 }

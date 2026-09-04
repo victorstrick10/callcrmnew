@@ -198,7 +198,7 @@ class StaticProxyController extends Controller
             ->with($type, "Imported {$created} proxy(ies), skipped {$skipped} duplicate(s).");
     }
 
-    /** Probe a single proxy against ipinfo.io to confirm it is live. */
+    /** Probe a single proxy against ip-api.com to confirm it is live. */
     public function check(StaticProxy $staticProxy): RedirectResponse
     {
         $result = $this->probe($staticProxy);
@@ -228,11 +228,11 @@ class StaticProxyController extends Controller
 
         return redirect()
             ->route('static-proxies.index', array_filter(['provider' => $provider]))
-            ->with($up > 0 ? 'success' : 'warning', "Proxy check: {$up} live, {$down} down (via ipinfo.io).");
+            ->with($up > 0 ? 'success' : 'warning', "Proxy check: {$up} live, {$down} down (via ip-api.com).");
     }
 
     /**
-     * Route a request through the proxy to ipinfo.io and record the result.
+     * Route a request through the proxy to ip-api.com and record the result.
      *
      * @return array{ok:bool,ip?:string,error?:string}
      */
@@ -290,7 +290,7 @@ class StaticProxyController extends Controller
 
     /**
      * Soft reset all MobileHop proxies: clear their cached exit IP/geo and
-     * immediately re-verify through ipinfo, surfacing their current rotating IP.
+     * immediately re-verify through ip-api.com, surfacing their current rotating IP.
      */
     public function softResetMobileHop(): RedirectResponse
     {
@@ -311,7 +311,7 @@ class StaticProxyController extends Controller
         }
 
         return redirect()->route('static-proxies.index', ['provider' => 'mobilehop'])
-            ->with('success', "Soft reset {$proxies->count()} MobileHop proxy(ies): {$up} live, {$down} down (current exit IPs re-verified via ipinfo.io).");
+            ->with('success', "Soft reset {$proxies->count()} MobileHop proxy(ies): {$up} live, {$down} down (current exit IPs re-verified via ip-api.com).");
     }
 
     /**

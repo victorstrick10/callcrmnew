@@ -74,7 +74,7 @@
   </details>
 
   <div class="proxy-flow">
-    <span>IPinfo location</span><b>→</b>
+    <span>ip-api location</span><b>→</b>
     <span>{{ $appointment->city ?: 'No city' }}, {{ $appointment->region ?: 'No region' }}, {{ $appointment->country_code ?: $appointment->country ?: 'No country' }}</span><b>→</b>
     <span>{{ $appointment->proxy_requested_city ?: 'pending' }} / {{ $appointment->proxy_requested_region ?: 'pending' }}</span><b>→</b>
     <span>Multilogin proxy</span>
@@ -143,7 +143,7 @@
     </div>
     <form method="post" action="{{ route('appointments.enrich', $appointment) }}">
       @csrf
-      <button class="btn btn-secondary full" type="submit">Refresh with IPinfo</button>
+      <button class="btn btn-secondary full" type="submit">Refresh with ip-api</button>
     </form>
   </div>
 
@@ -199,7 +199,7 @@
       {{-- Readiness --}}
       <div class="builder-checks">
         <div class="check {{ ($appointment->country_code || $appointment->country) ? 'ok' : 'warn' }}">
-          <span class="dot"></span> Location {{ ($appointment->country_code || $appointment->country) ? 'known' : 'missing — run IPinfo' }}
+          <span class="dot"></span> Location {{ ($appointment->country_code || $appointment->country) ? 'known' : 'missing — run geo lookup' }}
         </div>
         <div class="check {{ $builder['proxy_ready'] ? 'ok' : 'warn' }}">
           <span class="dot"></span> Proxy {{ $builder['proxy_ready'] ? 'ready' : 'not fetched (GEO needs it)' }}
@@ -233,7 +233,7 @@
         </div>
         <form method="post" action="{{ route('appointments.enrich', $appointment) }}" style="margin-top:12px">
           @csrf
-          <button class="btn btn-secondary" type="submit">↻ Re-run IPinfo</button>
+          <button class="btn btn-secondary" type="submit">↻ Re-run geo</button>
         </form>
       </div>
 
@@ -247,7 +247,7 @@
               <strong>Create Geo Profile</strong>
               <small>
                 @if($builder['geo_exists']) Already created
-                @elseif(!$builder['geo_eligible']) Needs a known country (run IPinfo)
+                @elseif(!$builder['geo_eligible']) Needs a known country (run geo lookup)
                 @else Matched Multilogin proxy for the lead's location @endif
               </small>
             </div>

@@ -27,7 +27,14 @@ class SystemStatusService
 
         $rows = IntegrationSetting::query()->get()->keyBy('provider');
 
-        $ipinfo = $this->providerStatus($rows->get('ipinfo'), 'api_token');
+        // Geolocation now uses ip-api.com, which needs no API key — always available.
+        $ipinfo = [
+            'configured' => true,
+            'ok' => true,
+            'state' => 'up',
+            'message' => 'ip-api.com (no key required)',
+            'checked_at' => null,
+        ];
 
         $companies = Company::query()->get();
         $companiesTotal = $companies->count();

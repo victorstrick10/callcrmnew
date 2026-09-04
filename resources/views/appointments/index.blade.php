@@ -67,7 +67,7 @@
           <th>{!! $sortLink('client', 'Client') !!}</th>
           <th>{!! $sortLink('event', 'Event') !!}</th>
           <th>{!! $sortLink('date', 'Date') !!}</th>
-          <th>{!! $sortLink('location', 'GEO (IPinfo)') !!}</th>
+          <th>{!! $sortLink('location', 'GEO (ip-api)') !!}</th>
           <th>{!! $sortLink('profiles', 'Profiles') !!}</th>
           <th>{!! $sortLink('status', 'Status') !!}</th>
         </tr>

@@ -1512,12 +1512,6 @@ class MultiloginClient
      */
     public function inspect_proxy_exit(array $proxy): array
     {
-        $cfg = $this->settings->getSettings('ipinfo');
-        $token = $cfg['api_token'] ?? '';
-        if (!$token) {
-            throw new \RuntimeException('IPinfo API token is required to inspect proxy ISP.');
-        }
-
         $scheme = strtolower((string) ($proxy['protocol'] ?? 'http'));
         if ($scheme === 'socks5') {
             $proxyUrl = "socks5h://{$proxy['username']}:{$proxy['password']}@{$proxy['host']}:{$proxy['port']}";
@@ -1525,28 +1519,41 @@ class MultiloginClient
             $proxyUrl = "http://{$proxy['username']}:{$proxy['password']}@{$proxy['host']}:{$proxy['port']}";
         }
 
+        // Route through the proxy to ip-api.com (no key, HTTP) to read the exit
+        // IP + geo/ISP. HTTP through the proxy avoids the HTTPS CONNECT failures
+        // some residential/mobile nodes exhibit.
         $response = Http::withOptions(['proxy' => $proxyUrl])
             ->timeout(35)
-            ->get('https://ipinfo.io/json', ['token' => $token]);
+            ->get('http://ip-api.com/json/', [
+                'fields' => 'status,message,country,countryCode,regionName,region,city,isp,org,as,asname,query',
+                'lang' => 'en',
+            ]);
         $response->throw();
-        $data = $response->json() ?? [];
+        $data = is_array($response->json()) ? $response->json() : [];
 
-        $company = is_array($data['company'] ?? null) ? $data['company'] : [];
-        $asnData = is_array($data['asn'] ?? null) ? $data['asn'] : [];
-        $org = (string) ($data['org'] ?? $company['name'] ?? '');
-        $isp = trim((string) ($company['name'] ?? ''));
+        if (($data['status'] ?? '') !== 'success') {
+            throw new \RuntimeException('ip-api.com proxy inspection failed: '.(string) ($data['message'] ?? 'unknown error'));
+        }
+
+        $as = trim((string) ($data['as'] ?? ''));
+        $org = $as !== '' ? $as : (string) ($data['org'] ?? '');
+        $isp = trim((string) ($data['isp'] ?? ''));
         if (!$isp) {
-            $isp = trim(preg_replace('/^AS\d+\s+/i', '', $org) ?? $org);
+            $isp = trim((string) ($data['org'] ?? '')) ?: trim(preg_replace('/^AS\d+\s+/i', '', $as) ?? '');
+        }
+        $asn = '';
+        if ($as !== '' && preg_match('/^(AS\d+)/i', $as, $m)) {
+            $asn = strtoupper($m[1]);
         }
 
         return [
-            'ip' => $data['ip'] ?? '',
-            'city' => $data['city'] ?? '',
-            'region' => $data['region'] ?? '',
-            'country' => $data['country'] ?? '',
+            'ip' => (string) ($data['query'] ?? ''),
+            'city' => (string) ($data['city'] ?? ''),
+            'region' => (string) ($data['regionName'] ?? ''),
+            'country' => (string) ($data['countryCode'] ?? ''),
             'org' => $org,
             'isp' => $isp,
-            'asn' => $asnData['asn'] ?? (str_starts_with(strtoupper($org), 'AS') ? explode(' ', $org, 2)[0] : ''),
+            'asn' => $asn,
             'raw' => $data,
         ];
     }
@@ -1904,7 +1911,7 @@ class MultiloginClient
     public static function default_custom_start_urls(): array
     {
         return [
-            'https://ipinfo.io/json',
+            'http://ip-api.com/json/',
         ];
     }
 
