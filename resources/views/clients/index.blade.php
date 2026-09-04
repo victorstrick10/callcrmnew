@@ -319,7 +319,20 @@
               <td>{{ $p->exit_region ?: '—' }}</td>
               <td>{{ $p->exit_city ?: '—' }}</td>
               <td>{{ $p->exit_isp ?: '—' }}</td>
-              <td><span class="svc-status state-{{ $p->last_check_status === 'up' ? 'up' : 'unknown' }}"><span class="dot"></span>{{ $p->last_check_status === 'up' ? 'live' : 'unchecked' }}</span></td>
+              <td>
+                @php
+                  $ppDispTz = config('app.display_timezone') ?: config('app.timezone');
+                  $ppLastCheck = $p->last_checked_at
+                    ? $p->last_checked_at->copy()->setTimezone($ppDispTz)->format('d.m.Y H:i')
+                    : null;
+                @endphp
+                <span class="svc-status state-{{ $p->last_check_status === 'up' ? 'up' : 'unknown' }}" title="{{ $ppLastCheck ? 'Last check '.$ppLastCheck.' (GMT+1)' : 'Not checked yet' }}">
+                  <span class="dot"></span>{{ $p->last_check_status === 'up' ? 'live' : 'unchecked' }}
+                </span>
+                @if ($ppLastCheck)
+                  <small class="muted" style="display:block;margin-top:4px">{{ $ppLastCheck }} (GMT+1)</small>
+                @endif
+              </td>
               <td>
                 <form method="post" action="{{ route('clients.assign-proxy') }}" style="margin:0">
                   @csrf

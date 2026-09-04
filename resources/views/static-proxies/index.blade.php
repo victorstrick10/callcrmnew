@@ -187,9 +187,20 @@
         </td>
         <td><input form="{{ $formId }}" name="location" value="{{ $proxy->location }}" placeholder="—" style="min-width:100px"></td>
         <td>
-          <span class="svc-status state-{{ $proxy->checkState() }}" title="{{ $proxy->last_checked_at ? 'Checked '.$proxy->last_checked_at->diffForHumans() : 'Not checked yet' }}">
+          @php
+            $dispTz = config('app.display_timezone') ?: config('app.timezone');
+            $lastCheckLabel = $proxy->last_checked_at
+              ? $proxy->last_checked_at->copy()->setTimezone($dispTz)->format('d.m.Y H:i')
+              : null;
+          @endphp
+          <span class="svc-status state-{{ $proxy->checkState() }}" title="{{ $lastCheckLabel ? 'Last check '.$lastCheckLabel.' (GMT+1)' : 'Not checked yet' }}">
             <span class="dot"></span>{{ $proxy->last_check_status ?: 'untested' }}
           </span>
+          @if ($proxy->last_checked_at)
+            <small class="muted" style="display:block;margin-top:4px">Last check {{ $lastCheckLabel }} (GMT+1) · {{ $proxy->last_checked_at->diffForHumans() }}</small>
+          @else
+            <small class="muted" style="display:block;margin-top:4px">Not checked yet</small>
+          @endif
           @if ($proxy->exit_ip || $proxy->exit_country)
           <div class="geo-lines">
             <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($proxy->exit_country) }} {{ $proxy->exit_country ?: '—' }}</span>
