@@ -1525,7 +1525,7 @@ class MultiloginClient
         $response = Http::withOptions(['proxy' => $proxyUrl])
             ->timeout(35)
             ->get('http://ip-api.com/json/', [
-                'fields' => 'status,message,country,countryCode,regionName,region,city,isp,org,as,asname,query',
+                'fields' => 'status,message,country,countryCode,regionName,region,zip,city,isp,org,as,asname,query',
                 'lang' => 'en',
             ]);
         $response->throw();
@@ -1550,6 +1550,8 @@ class MultiloginClient
             'ip' => (string) ($data['query'] ?? ''),
             'city' => (string) ($data['city'] ?? ''),
             'region' => (string) ($data['regionName'] ?? ''),
+            'region_code' => (string) ($data['region'] ?? ''),
+            'zip' => (string) ($data['zip'] ?? ''),
             'country' => (string) ($data['countryCode'] ?? ''),
             'org' => $org,
             'isp' => $isp,
@@ -1607,6 +1609,8 @@ class MultiloginClient
                     'exit_ip' => $exitInfo['ip'] ?? '',
                     'city' => ($exitInfo['city'] ?? '') !== '' ? $exitInfo['city'] : $targetCity,
                     'region' => ($exitInfo['region'] ?? '') !== '' ? $exitInfo['region'] : $targetRegion,
+                    'region_code' => (string) ($exitInfo['region_code'] ?? ''),
+                    'zip' => (string) ($exitInfo['zip'] ?? ''),
                     'country' => ($exitInfo['country'] ?? '') !== '' ? $exitInfo['country'] : $targetCountry,
                     'isp' => $proxyIsp,
                     'org' => $exitInfo['org'] ?? '',
@@ -1660,7 +1664,9 @@ class MultiloginClient
         $appointment->proxy_asn = $candidate['asn'] ?? '';
         $appointment->proxy_actual_country = $candidate['country'] ?? '';
         $appointment->proxy_actual_region = $candidate['region'] ?? '';
+        $appointment->proxy_region_code = $candidate['region_code'] ?? '';
         $appointment->proxy_actual_city = $candidate['city'] ?? '';
+        $appointment->proxy_zip = $candidate['zip'] ?? '';
 
         $appointment->proxy_country = $candidate['country'] ?? '';
         $appointment->proxy_region = $candidate['region'] ?? '';

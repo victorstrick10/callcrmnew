@@ -35,7 +35,7 @@ class StaticProxyService
             $response = Http::withOptions(['proxy' => $proxyUrl])
                 ->timeout(20)
                 ->get('http://ip-api.com/json/', [
-                    'fields' => 'status,message,countryCode,regionName,city,isp,org,as,query',
+                    'fields' => 'status,message,countryCode,region,regionName,zip,city,isp,org,as,query',
                     'lang' => 'en',
                 ]);
 
@@ -51,6 +51,8 @@ class StaticProxyService
                     'exit_ip' => (string) ($j['query'] ?? ''),
                     'exit_country' => (string) ($j['countryCode'] ?? ''),
                     'exit_region' => (string) ($j['regionName'] ?? ''),
+                    'exit_region_code' => (string) ($j['region'] ?? ''),
+                    'exit_zip' => (string) ($j['zip'] ?? ''),
                     'exit_city' => (string) ($j['city'] ?? ''),
                     'exit_isp' => $isp,
                     'last_checked_at' => now(),

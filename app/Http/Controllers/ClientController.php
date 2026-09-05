@@ -249,6 +249,30 @@ class ClientController extends Controller
     }
 
     /**
+     * Refresh the geolocation for a single lead's call (re-run ip-api on its IP).
+     */
+    public function refreshGeoOne(Request $request, AppointmentService $service): RedirectResponse
+    {
+        $data = $request->validate(['appointment_id' => ['required', 'integer']]);
+        $appointment = Appointment::query()->find((int) $data['appointment_id']);
+
+        if (! $appointment) {
+            return back()->with('danger', 'Lead call not found.');
+        }
+        if (! $appointment->ip_address) {
+            return back()->with('warning', 'This lead has no captured IP to look up.');
+        }
+
+        try {
+            $service->enrich($appointment);
+        } catch (Throwable $e) {
+            return back()->with('danger', 'Geo refresh failed: '.$e->getMessage());
+        }
+
+        return back()->with('success', "Refreshed geo for {$appointment->city}, {$appointment->region}, {$appointment->country_code} via ip-api.com.");
+    }
+
+    /**
      * Assign a specific proxy to a lead's call. Does NOT create a profile — the
      * STATIC action button uses the assigned proxy when creating.
      */
@@ -297,14 +321,18 @@ class ClientController extends Controller
             if ($score > $bestScore) {
                 $bestScore = $score;
                 $best = [
+                    'id' => (int) $p->id,
                     'provider' => (string) $p->provider,
                     'location' => (string) $p->location,
                     'level' => $level,
                     'country' => StaticProxyService::proxyCountryCode($p),
                     'exit_country' => (string) $p->exit_country,
                     'exit_region' => (string) $p->exit_region,
+                    'exit_region_code' => (string) $p->exit_region_code,
+                    'exit_zip' => (string) $p->exit_zip,
                     'exit_city' => (string) $p->exit_city,
                     'exit_isp' => (string) $p->exit_isp,
+                    'exit_ip' => (string) $p->exit_ip,
                     'checked' => $p->last_check_status === 'up',
                 ];
             }
@@ -407,21 +435,29 @@ class ClientController extends Controller
             // A proxy explicitly assigned to this call via the picker. When set, it
             // takes over the whole "Our Proxy" cell (replacing the auto best-match).
             $contact->chosen_proxy_label = '';
+            $contact->chosen_proxy_id = 0;
             $contact->chosen_proxy_provider = '';
             $contact->chosen_proxy_country = '';
             $contact->chosen_proxy_region = '';
+            $contact->chosen_proxy_region_code = '';
+            $contact->chosen_proxy_zip = '';
             $contact->chosen_proxy_city = '';
             $contact->chosen_proxy_isp = '';
+            $contact->chosen_proxy_ip = '';
             $contact->chosen_proxy_checked = false;
             if ($display && $display->chosen_static_proxy_id) {
                 $cp = $enabledProxies->firstWhere('id', (int) $display->chosen_static_proxy_id);
                 if ($cp) {
                     $contact->chosen_proxy_label = (string) ($cp->label ?: $cp->host);
+                    $contact->chosen_proxy_id = (int) $cp->id;
                     $contact->chosen_proxy_provider = (string) ($cp->provider ?: 'pool');
                     $contact->chosen_proxy_country = (string) ($cp->exit_country ?: StaticProxyService::proxyCountryCode($cp));
                     $contact->chosen_proxy_region = (string) $cp->exit_region;
+                    $contact->chosen_proxy_region_code = (string) $cp->exit_region_code;
+                    $contact->chosen_proxy_zip = (string) $cp->exit_zip;
                     $contact->chosen_proxy_city = (string) $cp->exit_city;
                     $contact->chosen_proxy_isp = (string) $cp->exit_isp;
+                    $contact->chosen_proxy_ip = (string) $cp->exit_ip;
                     $contact->chosen_proxy_checked = $cp->last_check_status === 'up';
                 }
             }
@@ -437,6 +473,12 @@ class ClientController extends Controller
             $contact->geo_country = trim((string) ($display?->country ?: $display?->country_code ?: ''));
             $contact->geo_country_code = trim((string) ($display?->country_code ?? ''));
             $contact->geo_provider = trim((string) ($display?->client_isp ?: $display?->client_org ?: ''));
+
+            // Region code + ZIP + queried IP come from the stored ip-api response.
+            $geoJson = is_array($display?->geo_json) ? $display->geo_json : [];
+            $contact->geo_region_code = trim((string) ($geoJson['region'] ?? ''));
+            $contact->geo_zip = trim((string) ($geoJson['zip'] ?? $geoJson['postal'] ?? ''));
+            $contact->geo_ip = trim((string) ($display?->ip_address ?: ($geoJson['query'] ?? $geoJson['ip'] ?? '')));
 
             $parts = array_values(array_filter([
                 $contact->geo_city,
@@ -462,21 +504,28 @@ class ClientController extends Controller
                 $contact->geo_provider
             );
             $contact->our_proxy_ready = $sm !== null;
+            $contact->our_proxy_id = (int) ($sm['id'] ?? 0);
             $contact->our_proxy_provider = $sm['provider'] ?? '';
             $contact->our_proxy_location = $sm['location'] ?? '';
             $contact->our_proxy_level = $sm['level'] ?? '';
             $contact->our_proxy_checked = (bool) ($sm['checked'] ?? false);
             $contact->our_proxy_country = ($sm['exit_country'] ?? '') ?: ($sm['country'] ?? '');
             $contact->our_proxy_region = $sm['exit_region'] ?? '';
+            $contact->our_proxy_region_code = $sm['exit_region_code'] ?? '';
+            $contact->our_proxy_zip = $sm['exit_zip'] ?? '';
             $contact->our_proxy_city = $sm['exit_city'] ?? '';
             $contact->our_proxy_isp = ($sm['exit_isp'] ?? '') ?: trim(str_replace((string) ($sm['country'] ?? ''), '', (string) ($sm['location'] ?? '')), ' ·');
+            $contact->our_proxy_ip = $sm['exit_ip'] ?? '';
 
             // Multilogin (GEO) proxy readiness from the display appointment.
             $contact->ml_proxy_ready = (bool) ($display && $display->proxy_status === 'ready');
             $contact->ml_proxy_country = trim((string) ($display?->proxy_actual_country ?: $display?->country_code ?: $display?->country ?: ''));
             $contact->ml_proxy_region = trim((string) ($display?->proxy_actual_region ?: $display?->region ?: ''));
+            $contact->ml_proxy_region_code = trim((string) ($display?->proxy_region_code ?? ''));
+            $contact->ml_proxy_zip = trim((string) ($display?->proxy_zip ?? ''));
             $contact->ml_proxy_city = trim((string) ($display?->proxy_actual_city ?: $display?->city ?: ''));
             $contact->ml_proxy_isp = trim((string) ($display?->proxy_isp ?: ''));
+            $contact->ml_proxy_ip = trim((string) ($display?->proxy_exit_ip ?? ''));
             $contact->ml_proxy_level = trim((string) ($display?->proxy_match_level ?? ''));
 
             return $contact;

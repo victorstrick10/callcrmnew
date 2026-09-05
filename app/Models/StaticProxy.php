@@ -8,7 +8,7 @@ class StaticProxy extends Model
 {
     protected $fillable = [
         'label', 'provider', 'network_type', 'location', 'host', 'port', 'username', 'password', 'protocol', 'enabled',
-        'last_check_status', 'exit_ip', 'exit_country', 'exit_region', 'exit_city', 'exit_isp', 'last_checked_at',
+        'last_check_status', 'exit_ip', 'exit_country', 'exit_region', 'exit_region_code', 'exit_zip', 'exit_city', 'exit_isp', 'last_checked_at',
     ];
 
     public function scopeMobile($query)

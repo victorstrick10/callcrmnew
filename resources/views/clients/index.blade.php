@@ -178,36 +178,46 @@
           </td>
           <td class="col-geo">
             @if ($c->geo_country || $c->geo_region || $c->geo_city || $c->geo_provider)
-              <div class="geo-lines">
-                <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->geo_country_code) }} {{ $c->geo_country ?: $c->geo_country_code ?: '—' }}</span>
-                <span><b>Region</b>{{ $c->geo_region ?: '—' }}</span>
-                <span><b>City</b>{{ $c->geo_city ?: '—' }}</span>
-                <span><b>ISP</b>{{ $c->geo_provider ?: '—' }}</span>
-              </div>
+              @include('partials.geo-print', ['geo' => [
+                'country' => $c->geo_country, 'countryCode' => $c->geo_country_code,
+                'regionCode' => $c->geo_region_code, 'regionName' => $c->geo_region,
+                'city' => $c->geo_city, 'zip' => $c->geo_zip, 'isp' => $c->geo_provider, 'ip' => $c->geo_ip,
+              ]])
             @else
               <span class="muted">Not enriched</span>
+            @endif
+            @if ($c->display_appointment_id && $c->geo_ip)
+              <form method="post" action="{{ route('clients.refresh-geo') }}" style="margin:6px 0 0">
+                @csrf
+                <input type="hidden" name="appointment_id" value="{{ $c->display_appointment_id }}">
+                <button class="mini-btn ghost" type="submit" title="Re-run ip-api.com geolocation on this lead's IP">↻ Refresh IP info</button>
+              </form>
             @endif
           </td>
           <td>
             @if ($c->chosen_proxy_label)
               <span class="svc-status state-up"><span class="dot"></span>Chosen · {{ ucfirst($c->chosen_proxy_provider ?: 'pool') }}</span>
-              <div class="geo-lines">
-                <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->chosen_proxy_country) }} {{ $c->chosen_proxy_country ?: '—' }}</span>
-                <span><b>Region</b>{{ $c->chosen_proxy_region ?: '—' }}</span>
-                <span><b>City</b>{{ $c->chosen_proxy_city ?: '—' }}</span>
-                <span><b>ISP</b>{{ $c->chosen_proxy_isp ?: '—' }}</span>
-              </div>
+              @include('partials.geo-print', ['geo' => [
+                'countryCode' => $c->chosen_proxy_country,
+                'regionCode' => $c->chosen_proxy_region_code, 'regionName' => $c->chosen_proxy_region,
+                'city' => $c->chosen_proxy_city, 'zip' => $c->chosen_proxy_zip, 'isp' => $c->chosen_proxy_isp, 'ip' => $c->chosen_proxy_ip,
+              ]])
               <small class="muted">{{ $c->chosen_proxy_label }}</small>
               @unless ($c->chosen_proxy_checked)<small class="muted">run “Check all live” to verify region/city</small>@endunless
+              @if ($c->chosen_proxy_id)
+                <form method="post" action="{{ route('static-proxies.check', $c->chosen_proxy_id) }}" style="margin:6px 0 0">@csrf<button class="mini-btn ghost" type="submit" title="Re-check this proxy's exit IP via ip-api.com">↻ Refresh IP info</button></form>
+              @endif
             @elseif ($c->our_proxy_ready)
               <span class="svc-status state-up"><span class="dot"></span>{{ ucfirst($c->our_proxy_provider ?: 'pool') }} · {{ str_replace('_', '+', $c->our_proxy_level) }}</span>
-              <div class="geo-lines">
-                <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->our_proxy_country) }} {{ $c->our_proxy_country ?: '—' }}</span>
-                <span><b>Region</b>{{ $c->our_proxy_region ?: '—' }}</span>
-                <span><b>City</b>{{ $c->our_proxy_city ?: '—' }}</span>
-                <span><b>ISP</b>{{ $c->our_proxy_isp ?: '—' }}</span>
-              </div>
+              @include('partials.geo-print', ['geo' => [
+                'countryCode' => $c->our_proxy_country,
+                'regionCode' => $c->our_proxy_region_code, 'regionName' => $c->our_proxy_region,
+                'city' => $c->our_proxy_city, 'zip' => $c->our_proxy_zip, 'isp' => $c->our_proxy_isp, 'ip' => $c->our_proxy_ip,
+              ]])
               @unless ($c->our_proxy_checked)<small class="muted">run “Check all live” to verify region/city</small>@endunless
+              @if ($c->our_proxy_id)
+                <form method="post" action="{{ route('static-proxies.check', $c->our_proxy_id) }}" style="margin:6px 0 0">@csrf<button class="mini-btn ghost" type="submit" title="Re-check this proxy's exit IP via ip-api.com">↻ Refresh IP info</button></form>
+              @endif
             @else
               <span class="svc-status state-unknown"><span class="dot"></span>No match</span>
             @endif
@@ -218,15 +228,14 @@
           <td>
             @if ($c->ml_proxy_ready)
               <span class="svc-status state-up"><span class="dot"></span>Ready</span>
-              <div class="geo-lines">
-                <span><b>Country</b>{{ \App\Support\CountryFlag::emoji($c->ml_proxy_country) }} {{ $c->ml_proxy_country ?: '—' }}</span>
-                <span><b>Region</b>{{ $c->ml_proxy_region ?: '—' }}</span>
-                <span><b>City</b>{{ $c->ml_proxy_city ?: '—' }}</span>
-                <span><b>ISP</b>{{ $c->ml_proxy_isp ?: '—' }}</span>
-              </div>
+              @include('partials.geo-print', ['geo' => [
+                'countryCode' => $c->ml_proxy_country,
+                'regionCode' => $c->ml_proxy_region_code, 'regionName' => $c->ml_proxy_region,
+                'city' => $c->ml_proxy_city, 'zip' => $c->ml_proxy_zip, 'isp' => $c->ml_proxy_isp, 'ip' => $c->ml_proxy_ip,
+              ]])
               <form method="post" action="{{ route('appointments.proxy.get', $c->display_appointment_id) }}" style="margin:6px 0 0">
                 @csrf
-                <button class="mini-btn ghost" type="submit" title="Rotate / get a new Multilogin proxy IP for this lead (keeps auto-match)">↻ Refresh IP</button>
+                <button class="mini-btn ghost" type="submit" title="Rotate to a new Multilogin proxy IP and re-read its geo via ip-api.com (keeps auto-match)">↻ Refresh IP info</button>
               </form>
               @include('clients.partials.proxy-edit', ['c' => $c])
             @elseif ($c->display_appointment_id)

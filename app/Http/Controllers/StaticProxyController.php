@@ -252,6 +252,8 @@ class StaticProxyController extends Controller
             'exit_ip' => '',
             'exit_country' => '',
             'exit_region' => '',
+            'exit_region_code' => '',
+            'exit_zip' => '',
             'exit_city' => '',
             'exit_isp' => '',
             'last_checked_at' => null,
