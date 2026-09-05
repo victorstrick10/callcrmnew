@@ -119,10 +119,16 @@ class AppointmentService
         // tier's 45 requests/min rate limit (per server IP).
         $limit = max(1, min($limit, 40));
 
+        // Pick leads with a captured IP that are either never geolocated, OR were
+        // geolocated by the old provider before ZIP/region-code existed (postal is
+        // NULL). enrich() always sets `postal` (to the ZIP or '') afterwards, so a
+        // lead is processed at most once here and backfilled leads aren't re-picked.
         $base = Appointment::query()
             ->whereNotNull('ip_address')
             ->where('ip_address', '!=', '')
-            ->whereNull('geo_enriched_at');
+            ->where(function ($q) {
+                $q->whereNull('geo_enriched_at')->orWhereNull('postal');
+            });
 
         $remaining = (clone $base)->count();
 
@@ -139,8 +145,13 @@ class AppointmentService
                     break;
                 }
                 $failed++;
-                // Mark as attempted so a single bad IP doesn't block the queue forever.
-                $appointment->forceFill(['geo_enriched_at' => now()])->save();
+                // Mark as attempted (set postal so it isn't re-picked) so a single
+                // bad IP doesn't block the backfill queue forever.
+                $appointment->forceFill([
+                    'geo_enriched_at' => now(),
+                    'postal' => (string) ($appointment->postal ?? ''),
+                    'region_code' => (string) ($appointment->region_code ?? ''),
+                ])->save();
             }
         }
 

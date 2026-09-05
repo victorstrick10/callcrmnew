@@ -80,4 +80,32 @@ class GeoPrintTest extends TestCase
         $this->assertSame('CO', $appt->fresh()->region_code);
         $this->assertSame('Colorado', $appt->fresh()->region);
     }
+
+    public function test_enrich_pending_backfills_old_leads_missing_zip(): void
+    {
+        Http::fake([
+            'ip-api.com/*' => Http::response([
+                'status' => 'success', 'countryCode' => 'US', 'country' => 'United States',
+                'region' => 'NY', 'regionName' => 'New York', 'city' => 'New York', 'zip' => '10001',
+                'isp' => 'Charter', 'query' => '24.1.2.3',
+            ], 200),
+        ]);
+
+        $company = Company::create(['name' => 'Acme', 'slug' => 'acme3', 'enabled' => true]);
+        $contact = Contact::create(['company_id' => $company->id, 'first_name' => 'Old', 'last_name' => 'Lead', 'email' => 'old@example.com']);
+        // A lead geolocated by the OLD provider: has geo + geo_enriched_at, but postal is NULL.
+        $appt = Appointment::create([
+            'company_id' => $company->id, 'contact_id' => $contact->id, 'event_name' => 'Call',
+            'start_time' => now(), 'status' => 'scheduled', 'ip_address' => '24.1.2.3',
+            'city' => 'New York', 'region' => 'New York', 'country' => 'United States', 'country_code' => 'US',
+            'geo_enriched_at' => now()->subDay(),
+        ]);
+        $this->assertNull($appt->postal);
+
+        $result = app(AppointmentService::class)->enrichPending(40);
+
+        $this->assertGreaterThanOrEqual(1, $result['enriched']);
+        $this->assertSame('10001', $appt->fresh()->postal);
+        $this->assertSame('NY', $appt->fresh()->region_code);
+    }
 }
