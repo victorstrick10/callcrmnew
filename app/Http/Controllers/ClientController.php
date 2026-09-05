@@ -474,10 +474,11 @@ class ClientController extends Controller
             $contact->geo_country_code = trim((string) ($display?->country_code ?? ''));
             $contact->geo_provider = trim((string) ($display?->client_isp ?: $display?->client_org ?: ''));
 
-            // Region code + ZIP + queried IP come from the stored ip-api response.
+            // Region code + ZIP prefer the persisted columns; fall back to the
+            // stored ip-api response for older rows. Queried IP = the device IP.
             $geoJson = is_array($display?->geo_json) ? $display->geo_json : [];
-            $contact->geo_region_code = trim((string) ($geoJson['region'] ?? ''));
-            $contact->geo_zip = trim((string) ($geoJson['zip'] ?? $geoJson['postal'] ?? ''));
+            $contact->geo_region_code = trim((string) ($display?->region_code ?: ($geoJson['region'] ?? '')));
+            $contact->geo_zip = trim((string) ($display?->postal ?: ($geoJson['zip'] ?? $geoJson['postal'] ?? '')));
             $contact->geo_ip = trim((string) ($display?->ip_address ?: ($geoJson['query'] ?? $geoJson['ip'] ?? '')));
 
             $parts = array_values(array_filter([

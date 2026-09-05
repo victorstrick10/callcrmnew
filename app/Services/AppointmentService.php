@@ -88,6 +88,9 @@ class AppointmentService
         foreach (['city', 'region', 'country', 'country_code', 'timezone', 'latitude', 'longitude'] as $key) {
             $appointment->{$key} = $result[$key] ?? null;
         }
+        // Persist the region short code and ZIP so the UI shows them reliably.
+        $appointment->region_code = $result['region_code'] ?? '';
+        $appointment->postal = $result['postal'] ?? '';
         $appointment->client_org = $result['org'] ?? '';
         $appointment->client_isp = ($result['isp'] ?? '') ?: $this->multilogin->_isp_name($result);
         $appointment->client_asn = $result['asn'] ?? '';

@@ -49,6 +49,8 @@ class Appointment extends Model
         'proxy_isp',
         'proxy_org',
         'proxy_asn',
+        'region_code',
+        'postal',
         'proxy_actual_country',
         'proxy_actual_region',
         'proxy_region_code',
