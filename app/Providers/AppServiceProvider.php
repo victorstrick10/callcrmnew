@@ -7,6 +7,7 @@ use App\Services\IntegrationSettingsService;
 use App\Services\MultiloginClient;
 use App\Services\ProfileNumberService;
 use App\Services\SystemStatusService;
+use App\Services\TreeContext;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -26,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(SystemStatusService::class);
+        $this->app->singleton(TreeContext::class);
     }
 
     public function boot(): void
@@ -36,7 +38,10 @@ class AppServiceProvider extends ServiceProvider
         }
 
         View::composer('partials.sidebar', function ($view) {
+            $tree = app(TreeContext::class);
             $view->with('systemStatus', app(SystemStatusService::class)->snapshot());
+            $view->with('workspaceTrees', $tree->trees());
+            $view->with('activeTree', $tree->active());
         });
     }
 }

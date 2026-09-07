@@ -11,16 +11,21 @@ use App\Http\Controllers\OutcomeController;
 use App\Http\Controllers\ProfileNumberController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaticProxyController;
+use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
     return response('ok', 200);
 });
 
+// Office / tree workspace selection (which office's data to view).
+Route::get('/workspace', [WorkspaceController::class, 'choose'])->name('workspace.choose');
+Route::get('/workspace/{tree}', [WorkspaceController::class, 'select'])->name('workspace.select');
+
 Route::post('/system/check-all', [CompanyController::class, 'runAllChecks'])->name('system.check-all');
 Route::post('/sync-all-calls', [CompanyController::class, 'syncAll'])->name('sync.all-calls');
 
-Route::get('/', DashboardController::class)->name('dashboard');
+Route::get('/', DashboardController::class)->middleware('workspace')->name('dashboard');
 
 Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');
 Route::get('/appointments/{appointment}', [AppointmentController::class, 'show'])->name('appointments.show');
@@ -31,13 +36,13 @@ Route::post('/appointments/{appointment}/profiles/{mode}', [AppointmentControlle
 
 Route::post('/browser-profiles/{browserProfile}/retry', [BrowserProfileController::class, 'retry'])->name('browser-profiles.retry');
 
-Route::get('/outcomes', [OutcomeController::class, 'index'])->name('outcomes.index');
+Route::get('/outcomes', [OutcomeController::class, 'index'])->middleware('workspace')->name('outcomes.index');
 Route::get('/outcomes/lines', [OutcomeController::class, 'lines'])->name('outcomes.lines');
 Route::get('/outcomes/export', [OutcomeController::class, 'export'])->name('outcomes.export');
 Route::put('/outcomes/{appointment}', [OutcomeController::class, 'update'])->name('outcomes.update');
 Route::post('/browser-profiles/{browserProfile}/keep', [OutcomeController::class, 'keepProfile'])->name('outcomes.keep-profile');
 
-Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
+Route::get('/clients', [ClientController::class, 'index'])->middleware('workspace')->name('clients.index');
 Route::get('/clients/export', [ClientController::class, 'export'])->name('clients.export');
 Route::post('/clients/create-missing-profiles', [ClientController::class, 'createMissingProfiles'])
     ->name('clients.create-missing-profiles');
@@ -58,7 +63,7 @@ Route::post('/companies/{company}/multilogin/test', [CompanyController::class, '
 Route::post('/companies/{company}/multilogin/refresh', [CompanyController::class, 'refreshMultilogin'])->name('companies.multilogin.refresh');
 Route::post('/companies/{company}/sync', [CompanyController::class, 'sync'])->name('companies.sync');
 
-Route::get('/numbers', [ProfileNumberController::class, 'index'])->name('numbers.index');
+Route::get('/numbers', [ProfileNumberController::class, 'index'])->middleware('workspace')->name('numbers.index');
 Route::post('/numbers/sync', [ProfileNumberController::class, 'sync'])->name('numbers.sync');
 Route::post('/numbers/sync-all', [ProfileNumberController::class, 'syncAll'])->name('numbers.sync-all');
 Route::put('/numbers/{profileNumber}', [ProfileNumberController::class, 'update'])->name('numbers.update');

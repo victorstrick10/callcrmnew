@@ -346,6 +346,7 @@ class CompanyController extends Controller
             'name' => ['required', 'string', 'max:180'],
             'short_name' => ['nullable', 'string', 'max:60'],
             'slug' => ['required', 'string', 'max:80', 'alpha_dash'],
+            'tree' => ['nullable', 'string', 'max:40'],
             'lead_api_url' => ['nullable', 'string', 'max:500'],
             'calendly_org_uri' => ['nullable', 'string', 'max:500'],
             'multilogin_base_url' => ['nullable', 'string', 'max:255'],
@@ -353,6 +354,7 @@ class CompanyController extends Controller
         ]);
 
         $data['short_name'] = trim((string) ($data['short_name'] ?? ''));
+        $data['tree'] = strtolower(trim((string) ($data['tree'] ?? ''))) ?: 'off1';
         $data['lead_api_url'] = $data['lead_api_url'] ?? '';
         $data['calendly_org_uri'] = $this->normalizeCalendlyOrgUri($data['calendly_org_uri'] ?? '');
         $data['multilogin_base_url'] = $data['multilogin_base_url'] ?: 'https://api.multilogin.com';

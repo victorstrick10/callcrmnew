@@ -12,6 +12,7 @@ class Company extends Model
         'name',
         'short_name',
         'slug',
+        'tree',
         'lead_api_url',
         'calendly_org_uri',
         'multilogin_base_url',
@@ -19,6 +20,39 @@ class Company extends Model
         'service_status',
         'enabled',
     ];
+
+    /** Human label for an office/tree slug, e.g. "off1" → "Off1". */
+    public static function treeLabel(?string $tree): string
+    {
+        $tree = trim((string) $tree);
+        if ($tree === '') {
+            return 'Off1';
+        }
+        if (preg_match('/^off\s*([0-9]+)$/i', $tree, $m)) {
+            return 'Off'.$m[1];
+        }
+
+        return ucwords(str_replace(['_', '-'], ' ', $tree));
+    }
+
+    /** This company's office/tree slug (defaults to off1). */
+    public function treeSlug(): string
+    {
+        $t = trim((string) ($this->tree ?? ''));
+
+        return $t !== '' ? strtolower($t) : 'off1';
+    }
+
+    /** Limit a query to companies in the given office/tree. */
+    public function scopeInTree($query, ?string $tree)
+    {
+        $tree = trim((string) $tree);
+        if ($tree === '') {
+            return $query;
+        }
+
+        return $query->whereRaw('lower(coalesce(tree, ?)) = ?', ['off1', strtolower($tree)]);
+    }
 
     protected $casts = [
         'enabled' => 'boolean',

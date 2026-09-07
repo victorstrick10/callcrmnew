@@ -3,6 +3,16 @@
     <div class="brand-mark"><img src="{{ asset('logo.svg') }}" alt="Calendly Ai logo" width="42" height="42"></div>
     <div><strong>Calendly Ai</strong><span>Calendly × Multilogin</span></div>
   </div>
+  @if (!empty($workspaceTrees) && count($workspaceTrees) > 1)
+  <div class="workspace-switch">
+    <label>Office</label>
+    <div class="workspace-switch-opts">
+      @foreach ($workspaceTrees as $slug => $label)
+        <a class="ws-chip {{ ($activeTree ?? '') === $slug ? 'active' : '' }}" href="{{ route('workspace.select', $slug) }}">{{ $label }}</a>
+      @endforeach
+    </div>
+  </div>
+  @endif
   <nav>
     <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">◫ <span>Dashboard</span></a>
     <a class="{{ request()->routeIs('clients.*') || request()->routeIs('appointments.*') ? 'active' : '' }}" href="{{ route('clients.index') }}">◎ <span>Clients</span></a>

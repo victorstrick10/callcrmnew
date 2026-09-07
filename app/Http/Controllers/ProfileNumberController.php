@@ -17,7 +17,7 @@ class ProfileNumberController extends Controller
 {
     public function index(Request $request, ProfileNumberService $numbers): View
     {
-        $companies = Company::query()->orderBy('name')->get();
+        $companies = app(\App\Services\TreeContext::class)->companies();
         $companyId = $request->integer('company_id') ?: null;
         $company = $companyId
             ? $companies->firstWhere('id', $companyId)

@@ -15,7 +15,7 @@
     <div class="company-card-head">
       <div class="client-avatar">{{ mb_strtoupper(mb_substr($company->name, 0, 1)) }}</div>
       <div>
-        <h3>{{ $company->name }}</h3>
+        <h3>{{ $company->name }} <span class="office-badge">{{ \App\Models\Company::treeLabel($company->tree) }}</span></h3>
         <p>{{ $company->slug }} · {{ $company->enabled ? 'Enabled' : 'Disabled' }}</p>
       </div>
     </div>

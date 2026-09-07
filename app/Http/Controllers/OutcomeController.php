@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\BrowserProfile;
+use App\Services\TreeContext;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,17 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OutcomeController extends Controller
 {
+    /** Scope an Appointment query to the active office/tree (no-op if none). */
+    private function scopeTree($query)
+    {
+        $ids = app(TreeContext::class)->companyIds();
+        if ($ids !== null) {
+            $query->whereIn('company_id', $ids);
+        }
+
+        return $query;
+    }
+
     /**
      * Call outcomes board: log what happened on each call (no-show, reschedule,
      * deal closed, …), add per-client comments, mark which browser to keep, and
@@ -42,7 +54,7 @@ class OutcomeController extends Controller
 
         [$start, $end] = $this->rangeBounds($range, $from, $to);
 
-        $query = Appointment::query()
+        $query = $this->scopeTree(Appointment::query())
             ->with(['contact.appointments.profiles', 'company', 'profiles'])
             ->orderBy('start_time'); // earliest call first
 
@@ -253,7 +265,7 @@ class OutcomeController extends Controller
                 continue;
             }
 
-            $rows = Appointment::query()
+            $rows = $this->scopeTree(Appointment::query())
                 ->whereBetween('start_time', [$qStart, $qEnd])
                 ->selectRaw('outcome, status, count(*) as c')
                 ->groupBy('outcome', 'status')
@@ -296,7 +308,7 @@ class OutcomeController extends Controller
 
         [$start, $end] = $this->rangeBounds($range, $from, $to);
 
-        $query = Appointment::query()
+        $query = $this->scopeTree(Appointment::query())
             ->with(['contact.appointments.profiles', 'company'])
             ->where('outcome', Appointment::OUTCOME_DEAL)
             ->orderByDesc('start_time');
@@ -310,7 +322,7 @@ class OutcomeController extends Controller
         $tz = config('app.display_timezone') ?: config('app.timezone');
         $monthStart = Carbon::now($tz)->startOfMonth()->utc();
         $yearStart = Carbon::now($tz)->startOfYear()->utc();
-        $base = fn () => Appointment::query()->where('outcome', Appointment::OUTCOME_DEAL);
+        $base = fn () => $this->scopeTree(Appointment::query())->where('outcome', Appointment::OUTCOME_DEAL);
 
         $totals = [
             'range' => $all->count(),
@@ -372,7 +384,7 @@ class OutcomeController extends Controller
 
         [$start, $end] = $this->rangeBounds($range, $from, $to);
 
-        $query = Appointment::query()->with(['contact', 'company'])->orderBy('start_time');
+        $query = $this->scopeTree(Appointment::query())->with(['contact', 'company'])->orderBy('start_time');
         if ($start && $end) {
             $query->whereBetween('start_time', [$start, $end]);
         }

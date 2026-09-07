@@ -52,7 +52,7 @@ class ClientController extends Controller
 
         $contacts = $this->sortContacts($contacts, $sort, $dir, (bool) ($rangeStart && $rangeEnd));
 
-        $companies = Company::query()->orderBy('name')->get();
+        $companies = app(\App\Services\TreeContext::class)->companies();
         $staticProxies = StaticProxy::query()->enabled()->orderBy('provider')->orderBy('label')->get();
 
         return view('clients.index', compact(
@@ -358,6 +358,12 @@ class ClientController extends Controller
                 'appointments.profiles',
             ])
             ->orderByDesc('created_at');
+
+        // Scope to the active office/tree so each office's leads stay separate.
+        $treeIds = app(\App\Services\TreeContext::class)->companyIds();
+        if ($treeIds !== null) {
+            $query->whereIn('company_id', $treeIds);
+        }
 
         if ($companySlug !== '') {
             $query->whereHas('ownerCompany', fn ($q) => $q->where('slug', $companySlug));

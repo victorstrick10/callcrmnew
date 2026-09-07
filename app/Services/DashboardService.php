@@ -11,10 +11,42 @@ use Illuminate\Support\Carbon;
 
 class DashboardService
 {
+    public function __construct(private TreeContext $tree)
+    {
+    }
+
     /** Operator display timezone (GMT+1 by default) for today/tomorrow logic. */
     private function tz(): string
     {
         return config('app.display_timezone') ?: config('app.timezone');
+    }
+
+    /** Active office/tree company IDs, or null to include all offices. */
+    private function ids(): ?array
+    {
+        return $this->tree->companyIds();
+    }
+
+    /** Scope a company_id-bearing query (Appointment/Contact) to the active office. */
+    private function scope($query)
+    {
+        $ids = $this->ids();
+        if ($ids !== null) {
+            $query->whereIn('company_id', $ids);
+        }
+
+        return $query;
+    }
+
+    /** Scope a BrowserProfile query (via its appointment's company) to the active office. */
+    private function scopeProfiles($query)
+    {
+        $ids = $this->ids();
+        if ($ids !== null) {
+            $query->whereHas('appointment', fn ($q) => $q->whereIn('company_id', $ids));
+        }
+
+        return $query;
     }
 
     /**
@@ -30,7 +62,7 @@ class DashboardService
         $start = Carbon::now($tz)->startOfDay()->addDays($dayOffset);
         $end = $start->copy()->addDay();
 
-        $appointments = Appointment::query()
+        $appointments = $this->scope(Appointment::query())
             ->where('status', 'scheduled')
             ->whereBetween('start_time', [$start->copy()->utc(), $end->copy()->utc()])
             ->orderBy('start_time')
@@ -66,7 +98,7 @@ class DashboardService
             return 0;
         }
 
-        return Appointment::query()
+        return $this->scope(Appointment::query())
             ->where('status', 'scheduled')
             ->where('created_at', '>', $since)
             ->count();
@@ -94,7 +126,7 @@ class DashboardService
         for ($i = 0; $i < 7; $i++) {
             $start = $weekStart->copy()->addDays($i);
             $end = $start->copy()->addDay();
-            $count = Appointment::query()
+            $count = $this->scope(Appointment::query())
                 ->where('status', 'scheduled')
                 ->whereBetween('start_time', [$start->copy()->utc(), $end->copy()->utc()])
                 ->count();
@@ -133,7 +165,7 @@ class DashboardService
     {
         [$start, $end] = $this->weekBoundsUtc();
 
-        $by = Appointment::query()
+        $by = $this->scope(Appointment::query())
             ->whereBetween('start_time', [$start, $end])
             ->selectRaw('outcome, count(*) as c')
             ->groupBy('outcome')
@@ -155,7 +187,7 @@ class DashboardService
             'won' => $won,
             'no_show' => $noShow,
             'rescheduled' => $rescheduled,
-            'kept_browsers' => (int) BrowserProfile::query()->where('is_kept', true)->count(),
+            'kept_browsers' => (int) $this->scopeProfiles(BrowserProfile::query())->where('is_kept', true)->count(),
             'show_rate' => $total > 0 ? (int) round(($attended / $total) * 100) : 0,
             'no_show_rate' => $total > 0 ? (int) round(($noShow / $total) * 100) : 0,
             'win_rate' => $attended > 0 ? (int) round(($won / $attended) * 100) : 0,
@@ -169,12 +201,12 @@ class DashboardService
      */
     public function funnel(): array
     {
-        $leads = (int) Contact::query()->count();
-        $withCalls = (int) Contact::query()->whereHas('appointments', fn ($q) => $q->where('status', 'scheduled'))->count();
-        $withProfiles = (int) Contact::query()
+        $leads = (int) $this->scope(Contact::query())->count();
+        $withCalls = (int) $this->scope(Contact::query())->whereHas('appointments', fn ($q) => $q->where('status', 'scheduled'))->count();
+        $withProfiles = (int) $this->scope(Contact::query())
             ->whereHas('appointments.profiles', fn ($q) => $q->where('status', 'created'))
             ->count();
-        $deals = (int) Contact::query()
+        $deals = (int) $this->scope(Contact::query())
             ->whereHas('appointments', fn ($q) => $q->where('outcome', Appointment::OUTCOME_DEAL))
             ->count();
 
@@ -195,7 +227,7 @@ class DashboardService
      */
     public function topCountries(int $limit = 6): array
     {
-        $rows = Appointment::query()
+        $rows = $this->scope(Appointment::query())
             ->where('status', 'scheduled')
             ->whereNotNull('country_code')
             ->where('country_code', '!=', '')
@@ -226,9 +258,9 @@ class DashboardService
         [$weekStart] = $this->weekBoundsUtc();
 
         return [
-            'today' => (int) Contact::query()->where('created_at', '>=', $todayStart)->count(),
-            'week' => (int) Contact::query()->where('created_at', '>=', $weekStart)->count(),
-            'total' => (int) Contact::query()->count(),
+            'today' => (int) $this->scope(Contact::query())->where('created_at', '>=', $todayStart)->count(),
+            'week' => (int) $this->scope(Contact::query())->where('created_at', '>=', $weekStart)->count(),
+            'total' => (int) $this->scope(Contact::query())->count(),
         ];
     }
 
@@ -240,24 +272,24 @@ class DashboardService
         $tomorrowEnd = $todayEnd->copy()->addDay();
 
         return [
-            'appointments' => Appointment::query()->count(),
-            'scheduled' => Appointment::query()->where('status', 'scheduled')->count(),
-            'profiles' => BrowserProfile::query()->where('status', 'created')->count(),
-            'failed' => BrowserProfile::query()->where('status', 'failed')->count(),
+            'appointments' => $this->scope(Appointment::query())->count(),
+            'scheduled' => $this->scope(Appointment::query())->where('status', 'scheduled')->count(),
+            'profiles' => $this->scopeProfiles(BrowserProfile::query())->where('status', 'created')->count(),
+            'failed' => $this->scopeProfiles(BrowserProfile::query())->where('status', 'failed')->count(),
             'pending_profiles' => $this->pendingProfiles(9999)->count(),
-            'calls_today' => Appointment::query()
+            'calls_today' => $this->scope(Appointment::query())
                 ->where('status', 'scheduled')
                 ->whereBetween('start_time', [$todayStart->copy()->utc(), $todayEnd->copy()->utc()])
                 ->count(),
-            'calls_tomorrow' => Appointment::query()
+            'calls_tomorrow' => $this->scope(Appointment::query())
                 ->where('status', 'scheduled')
                 ->whereBetween('start_time', [$todayEnd->copy()->utc(), $tomorrowEnd->copy()->utc()])
                 ->count(),
-            'calls_upcoming' => Appointment::query()
+            'calls_upcoming' => $this->scope(Appointment::query())
                 ->where('status', 'scheduled')
                 ->where('start_time', '>=', Carbon::now('UTC'))
                 ->count(),
-            'companies' => Company::query()->count(),
+            'companies' => $this->tree->companies()->count(),
         ];
     }
 
@@ -271,7 +303,7 @@ class DashboardService
         $todayStart = Carbon::now($tz)->startOfDay();
         $todayEnd = $todayStart->copy()->addDay();
 
-        return Appointment::query()
+        return $this->scope(Appointment::query())
             ->with(['contact', 'company', 'profiles'])
             ->where('status', 'scheduled')
             ->whereBetween('start_time', [$todayStart->copy()->utc(), $todayEnd->copy()->utc()])
@@ -298,7 +330,7 @@ class DashboardService
         $tomorrowStart = Carbon::now($tz)->addDay()->startOfDay();
         $tomorrowEnd = $tomorrowStart->copy()->addDay();
 
-        return Appointment::query()
+        return $this->scope(Appointment::query())
             ->with(['contact', 'company'])
             ->where('status', 'scheduled')
             ->whereBetween('start_time', [$tomorrowStart->copy()->utc(), $tomorrowEnd->copy()->utc()])

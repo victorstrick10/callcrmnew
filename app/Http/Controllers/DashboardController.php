@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Company;
 use App\Services\DashboardService;
 use App\Services\SystemStatusService;
+use App\Services\TreeContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cookie;
@@ -15,7 +15,7 @@ class DashboardController extends Controller
     /** ~1 year, in minutes, for the "last seen" cookie. */
     private const LAST_SEEN_TTL = 60 * 24 * 365;
 
-    public function __invoke(Request $request, DashboardService $dashboard, SystemStatusService $status): View
+    public function __invoke(Request $request, DashboardService $dashboard, SystemStatusService $status, TreeContext $tree): View
     {
         $lastSeen = null;
         $raw = $request->cookie('crm_last_seen');
@@ -38,7 +38,7 @@ class DashboardController extends Controller
             'pending' => $dashboard->pendingProfiles(),
             'recentLogs' => $dashboard->recentLogs(),
             'systemStatus' => $status->snapshot(),
-            'companies' => Company::query()->orderBy('name')->get(),
+            'companies' => $tree->companies(),
             'todayCalls' => $dashboard->callTimes(0),
             'tomorrowCalls' => $dashboard->callTimes(1),
             'weekCalls' => $dashboard->callsByDay(0),

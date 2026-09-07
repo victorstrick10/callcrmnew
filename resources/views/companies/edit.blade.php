@@ -51,6 +51,14 @@
       <div><label>Name</label><input name="name" value="{{ old('name', $company->name) }}" required></div>
       <div><label>Short name <span>used in profile names</span></label><input name="short_name" value="{{ old('short_name', $company->short_name) }}" placeholder="e.g. Diligent or Global"></div>
       <div><label>Slug</label><input name="slug" value="{{ old('slug', $company->slug) }}" required></div>
+      <div>
+        <label>Office / Tree <span>which workspace this company belongs to</span></label>
+        <input name="tree" list="office-trees" value="{{ old('tree', $company->tree ?: 'off1') }}" placeholder="off1">
+        <datalist id="office-trees">
+          <option value="off1">Off1</option>
+          <option value="off2">Off2</option>
+        </datalist>
+      </div>
     </div>
 
     <h3 class="section-title">Lead API</h3>
