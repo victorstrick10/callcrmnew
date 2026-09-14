@@ -80,7 +80,9 @@ class StaticProxyService
 
     public function randomEnabled(): StaticProxy
     {
-        $proxy = StaticProxy::query()->enabled()->inRandomOrder()->first();
+        // Prefer proxies that aren't marked down; fall back to any enabled one.
+        $proxy = StaticProxy::query()->usable()->inRandomOrder()->first()
+            ?: StaticProxy::query()->enabled()->inRandomOrder()->first();
         if (! $proxy) {
             throw new RuntimeException('No enabled static proxies configured. Add at least one in Static Proxies.');
         }
@@ -97,9 +99,10 @@ class StaticProxyService
      */
     public function pickForLocation(?string $city, ?string $region, ?string $country, ?string $isp = ''): StaticProxy
     {
-        $enabled = StaticProxy::query()->enabled()->get();
+        // Never suggest a proxy that failed its last liveness check.
+        $enabled = StaticProxy::query()->usable()->get();
         if ($enabled->isEmpty()) {
-            throw new RuntimeException('No enabled static proxies configured. Add at least one in Static Proxies.');
+            throw new RuntimeException('No live static proxies available. Add or re-check proxies in Static Proxies (down proxies are skipped).');
         }
 
         // Mobile proxies are used for STATIC creation; fall back to any enabled
@@ -131,10 +134,10 @@ class StaticProxyService
      */
     public function pickForProvider(string $provider, ?string $city, ?string $region, ?string $country): StaticProxy
     {
-        $pool = StaticProxy::query()->enabled()->where('provider', $provider)->get();
+        $pool = StaticProxy::query()->usable()->where('provider', $provider)->get();
         if ($pool->isEmpty()) {
             throw new RuntimeException(
-                'No enabled '.$provider.' proxies configured. Add at least one MobileHop proxy in Static Proxies.'
+                'No live '.$provider.' proxies available. Add or re-check a '.$provider.' proxy in Static Proxies (down proxies are skipped).'
             );
         }
 

@@ -323,7 +323,7 @@
           <tbody>
           @forelse ($staticProxies as $p)
             @php $pc = \App\Services\StaticProxyService::proxyCountryCode($p); @endphp
-            <tr class="pp-row" data-provider="{{ $p->provider }}">
+            <tr class="pp-row {{ $p->isDown() ? 'pp-down' : '' }}" data-provider="{{ $p->provider }}" data-down="{{ $p->isDown() ? '1' : '0' }}">
               <td class="col-lead"><strong>{{ ucfirst($p->provider ?: 'pool') }}</strong><small>{{ $p->label ?: $p->host }}</small></td>
               <td>{{ \App\Support\CountryFlag::emoji($p->exit_country ?: $pc) }} {{ $p->exit_country ?: ($pc ?: '—') }}</td>
               <td>{{ $p->exit_region ?: '—' }}</td>
@@ -336,8 +336,8 @@
                     ? $p->last_checked_at->copy()->setTimezone($ppDispTz)->format('d.m.Y H:i')
                     : null;
                 @endphp
-                <span class="svc-status state-{{ $p->last_check_status === 'up' ? 'up' : 'unknown' }}" title="{{ $ppLastCheck ? 'Last check '.$ppLastCheck.' (GMT+1)' : 'Not checked yet' }}">
-                  <span class="dot"></span>{{ $p->last_check_status === 'up' ? 'live' : 'unchecked' }}
+                <span class="svc-status state-{{ $p->isDown() ? 'down' : ($p->last_check_status === 'up' ? 'up' : 'unknown') }}" title="{{ $ppLastCheck ? 'Last check '.$ppLastCheck.' (GMT+1)' : 'Not checked yet' }}">
+                  <span class="dot"></span>{{ $p->isDown() ? 'down' : ($p->last_check_status === 'up' ? 'live' : 'unchecked') }}
                 </span>
                 @if ($ppLastCheck)
                   <small class="muted" style="display:block;margin-top:4px">{{ $ppLastCheck }} (GMT+1)</small>
@@ -348,7 +348,7 @@
                   @csrf
                   <input type="hidden" name="static_proxy_id" value="{{ $p->id }}">
                   <input type="hidden" name="appointment_id" class="pp-appt" value="">
-                  <button class="mini-btn strong" type="submit">Select</button>
+                  <button class="mini-btn strong" type="submit" @disabled($p->isDown()) title="{{ $p->isDown() ? 'This proxy is down — re-check it in Static Proxies first' : 'Assign this proxy to the lead' }}">Select</button>
                 </form>
               </td>
             </tr>

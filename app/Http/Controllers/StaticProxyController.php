@@ -35,6 +35,16 @@ class StaticProxyController extends Controller
 
         $counts = $scoped->groupBy(fn ($p) => $p->provider ?: 'other')->map->count();
 
+        // Sort the pool by the chosen column (provider/label/location/status/…).
+        $sort = (string) $request->query('sort', 'provider');
+        $dir = strtolower((string) $request->query('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $proxies = $this->sortProxies($proxies, $sort, $dir);
+
+        // Live / down / unchecked tallies for the current view.
+        $liveCount = $proxies->where('last_check_status', 'up')->count();
+        $downCount = $proxies->where('last_check_status', 'down')->count();
+        $uncheckedCount = $proxies->count() - $liveCount - $downCount;
+
         $settings = app(IntegrationSettingsService::class);
         $pc = $settings->getSettings('proxycheap');
 
@@ -44,11 +54,35 @@ class StaticProxyController extends Controller
             'scoped' => $scoped,
             'provider' => $provider,
             'type' => $type,
+            'sort' => $sort,
+            'dir' => $dir,
+            'liveCount' => $liveCount,
+            'downCount' => $downCount,
+            'uncheckedCount' => $uncheckedCount,
             'providers' => self::PROVIDERS,
             'counts' => $counts,
             'proxyCheapConfigured' => trim((string) ($pc['api_key'] ?? '')) !== '',
             'proxyCheapMasked' => $settings->masked($pc['api_key'] ?? ''),
         ]);
+    }
+
+    /**
+     * Sort the proxy collection by a user-chosen column.
+     */
+    private function sortProxies($proxies, string $sort, string $dir)
+    {
+        $key = match ($sort) {
+            'label' => fn ($p) => mb_strtolower((string) $p->label),
+            'location' => fn ($p) => mb_strtolower((string) $p->location),
+            'status' => fn ($p) => ['up' => 0, 'down' => 2][$p->last_check_status] ?? 1,
+            'country' => fn ($p) => mb_strtolower((string) $p->exit_country),
+            'city' => fn ($p) => mb_strtolower((string) $p->exit_city),
+            'enabled' => fn ($p) => $p->enabled ? 0 : 1,
+            'network' => fn ($p) => mb_strtolower((string) $p->network_type),
+            default => fn ($p) => mb_strtolower((string) ($p->provider ?: 'zzz')),
+        };
+
+        return ($dir === 'desc' ? $proxies->sortByDesc($key) : $proxies->sortBy($key))->values();
     }
 
     /**

@@ -7,6 +7,15 @@
 @section('content')
 @php
   $providerLabel = fn ($p) => $providers[$p] ?? ($p ?: 'Other');
+  // Sortable column header link (preserves provider/type, toggles direction).
+  $sortLink = function ($key, $label) use ($provider, $type, $sort, $dir) {
+    $nextDir = ($sort === $key && $dir === 'asc') ? 'desc' : 'asc';
+    $arrow = $sort === $key ? ($dir === 'asc' ? ' ▲' : ' ▼') : '';
+    $url = route('static-proxies.index', array_filter([
+      'provider' => $provider, 'type' => $type, 'sort' => $key, 'dir' => $nextDir,
+    ]));
+    return '<a class="sort-link" href="'.$url.'">'.$label.$arrow.'</a>';
+  };
 @endphp
 
 <div class="tabs" role="tablist">
@@ -23,10 +32,12 @@
   <a class="chip-btn {{ $type === 'all' ? 'chip-active' : '' }}" href="{{ route('static-proxies.index', array_filter(['provider' => $provider, 'type' => 'all'])) }}">All types</a>
 </div>
 
-<div class="stat-grid three">
+<div class="stat-grid wrap">
   <div class="stat-card"><span>Total {{ $provider ? '· '.$providerLabel($provider) : '' }}</span><strong>{{ $proxies->count() }}</strong><small>Configured proxies</small></div>
-  <div class="stat-card"><span>Enabled</span><strong>{{ $proxies->where('enabled', true)->count() }}</strong><small>Available for random pick</small></div>
-  <div class="stat-card"><span>Disabled</span><strong>{{ $proxies->where('enabled', false)->count() }}</strong><small>Excluded from pool</small></div>
+  <div class="stat-card"><span><i class="px-dot up"></i> Live</span><strong>{{ $liveCount }}</strong><small>Passing ip-api check</small></div>
+  <div class="stat-card"><span><i class="px-dot down"></i> Down</span><strong>{{ $downCount }}</strong><small>Skipped when creating browsers</small></div>
+  <div class="stat-card"><span><i class="px-dot unknown"></i> Unchecked</span><strong>{{ $uncheckedCount }}</strong><small>Not verified yet</small></div>
+  <div class="stat-card"><span>Enabled</span><strong>{{ $proxies->where('enabled', true)->count() }}</strong><small>In the pool</small></div>
 </div>
 
 <div class="panel">
@@ -64,11 +75,11 @@
     <table>
       <thead>
         <tr>
-          <th>Provider</th>
-          <th>Label</th>
-          <th>Location</th>
-          <th>Live (ip-api geo)</th>
-          <th>Enabled</th>
+          <th>{!! $sortLink('provider', 'Provider') !!}</th>
+          <th>{!! $sortLink('label', 'Label') !!}</th>
+          <th>{!! $sortLink('location', 'Location') !!}</th>
+          <th>{!! $sortLink('status', 'Live (ip-api geo)') !!} · {!! $sortLink('country', 'Country') !!} · {!! $sortLink('city', 'City') !!}</th>
+          <th>{!! $sortLink('enabled', 'Enabled') !!}</th>
           <th>Connection</th>
           <th></th>
         </tr>

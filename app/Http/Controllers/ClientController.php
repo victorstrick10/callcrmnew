@@ -312,6 +312,10 @@ class ClientController extends Controller
         $bestScore = 0.0;
 
         foreach ($proxies as $p) {
+            // Never suggest a proxy that failed its last liveness check.
+            if ($p->isDown()) {
+                continue;
+            }
             $level = $svc->matchLevel($p, $city, $region, $country, $isp);
             if (! isset($rank[$level])) {
                 continue;

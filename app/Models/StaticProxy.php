@@ -37,6 +37,23 @@ class StaticProxy extends Model
         return $query->where('enabled', true);
     }
 
+    /**
+     * Enabled proxies that are safe to suggest when creating browsers: never
+     * offer one whose last liveness check was DOWN (untested/up are fine).
+     */
+    public function scopeUsable($query)
+    {
+        return $query->where('enabled', true)->where(function ($q) {
+            $q->whereNull('last_check_status')->orWhere('last_check_status', '!=', 'down');
+        });
+    }
+
+    /** True when the last liveness check marked this proxy down. */
+    public function isDown(): bool
+    {
+        return $this->last_check_status === 'down';
+    }
+
     public function toMultiloginProxy(): array
     {
         return [
