@@ -76,9 +76,13 @@ class StaticProxyController extends Controller
             'location' => fn ($p) => mb_strtolower((string) $p->location),
             'status' => fn ($p) => ['up' => 0, 'down' => 2][$p->last_check_status] ?? 1,
             'country' => fn ($p) => mb_strtolower((string) $p->exit_country),
+            'region' => fn ($p) => mb_strtolower((string) $p->exit_region),
             'city' => fn ($p) => mb_strtolower((string) $p->exit_city),
+            'isp' => fn ($p) => mb_strtolower((string) $p->exit_isp),
+            'ip' => fn ($p) => (string) $p->exit_ip,
             'enabled' => fn ($p) => $p->enabled ? 0 : 1,
             'network' => fn ($p) => mb_strtolower((string) $p->network_type),
+            'host' => fn ($p) => mb_strtolower((string) $p->host),
             default => fn ($p) => mb_strtolower((string) ($p->provider ?: 'zzz')),
         };
 
@@ -242,6 +246,24 @@ class StaticProxyController extends Controller
             : "Proxy {$staticProxy->host}:{$staticProxy->port} is DOWN: {$result['error']}";
 
         return back()->with($type, $msg);
+    }
+
+    /** Delete every proxy that failed its last liveness check (optionally within a provider). */
+    public function deleteDown(Request $request): RedirectResponse
+    {
+        $provider = trim((string) $request->input('provider', ''));
+
+        $query = StaticProxy::query()->where('last_check_status', 'down');
+        if ($provider !== '') {
+            $query->where('provider', $provider);
+        }
+
+        $count = (int) $query->count();
+        $query->delete();
+
+        return redirect()
+            ->route('static-proxies.index', array_filter(['provider' => $provider]))
+            ->with($count > 0 ? 'success' : 'warning', "Removed {$count} down proxy(ies).");
     }
 
     /** Probe every proxy (bounded) and report how many are live. */

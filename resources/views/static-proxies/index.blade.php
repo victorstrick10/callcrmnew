@@ -35,7 +35,16 @@
 <div class="stat-grid wrap">
   <div class="stat-card"><span>Total {{ $provider ? '· '.$providerLabel($provider) : '' }}</span><strong>{{ $proxies->count() }}</strong><small>Configured proxies</small></div>
   <div class="stat-card"><span><i class="px-dot up"></i> Live</span><strong>{{ $liveCount }}</strong><small>Passing ip-api check</small></div>
-  <div class="stat-card"><span><i class="px-dot down"></i> Down</span><strong>{{ $downCount }}</strong><small>Skipped when creating browsers</small></div>
+  <div class="stat-card"><span><i class="px-dot down"></i> Down</span><strong>{{ $downCount }}</strong>
+    @if ($downCount > 0)
+      <form method="post" action="{{ route('static-proxies.delete-down') }}" onsubmit="return confirm('Remove all {{ $downCount }} down proxy(ies){{ $provider ? ' for '.$providerLabel($provider) : '' }}? This deletes them from the pool.');" style="margin:4px 0 0">
+        @csrf<input type="hidden" name="provider" value="{{ $provider }}">
+        <button type="submit" class="mini-btn danger">🗑 Remove down</button>
+      </form>
+    @else
+      <small>Skipped when creating browsers</small>
+    @endif
+  </div>
   <div class="stat-card"><span><i class="px-dot unknown"></i> Unchecked</span><strong>{{ $uncheckedCount }}</strong><small>Not verified yet</small></div>
   <div class="stat-card"><span>Enabled</span><strong>{{ $proxies->where('enabled', true)->count() }}</strong><small>In the pool</small></div>
 </div>
@@ -62,6 +71,12 @@
         @csrf
         <button class="btn btn-danger" type="submit" title="Hard reset: clear cached geo for every proxy across all providers and re-verify the whole pool">⟲ Hard reset · all</button>
       </form>
+      @if ($downCount > 0)
+      <form method="post" action="{{ route('static-proxies.delete-down') }}" style="margin:0" onsubmit="return confirm('Remove all {{ $downCount }} down proxy(ies){{ $provider ? ' for '.$providerLabel($provider) : '' }}? This deletes them from the pool.');">
+        @csrf<input type="hidden" name="provider" value="{{ $provider }}">
+        <button class="btn btn-danger" type="submit" title="Delete every proxy that failed its last liveness check">🗑 Remove down ({{ $downCount }})</button>
+      </form>
+      @endif
     </div>
   </div>
   @foreach ($proxies as $proxy)
@@ -78,9 +93,9 @@
           <th>{!! $sortLink('provider', 'Provider') !!}</th>
           <th>{!! $sortLink('label', 'Label') !!}</th>
           <th>{!! $sortLink('location', 'Location') !!}</th>
-          <th>{!! $sortLink('status', 'Live (ip-api geo)') !!} · {!! $sortLink('country', 'Country') !!} · {!! $sortLink('city', 'City') !!}</th>
+          <th>{!! $sortLink('status', 'Live') !!} · {!! $sortLink('country', 'Country') !!} · {!! $sortLink('region', 'Region') !!} · {!! $sortLink('city', 'City') !!} · {!! $sortLink('isp', 'ISP') !!} · {!! $sortLink('ip', 'IP') !!}</th>
           <th>{!! $sortLink('enabled', 'Enabled') !!}</th>
-          <th>Connection</th>
+          <th>{!! $sortLink('network', 'Connection') !!}</th>
           <th></th>
         </tr>
       </thead>

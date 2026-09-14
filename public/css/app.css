@@ -413,6 +413,8 @@ a.sort-link{color:inherit;text-decoration:none;cursor:pointer;white-space:nowrap
 a.sort-link:hover{color:var(--primary)}
 tr.pp-down{opacity:.6}
 tr.pp-down .mini-btn[disabled]{opacity:.5;cursor:not-allowed}
+.mini-btn.danger{background:#fdecee;color:#b42337;border-color:rgba(180,35,55,.3)}
+.mini-btn.danger:hover{background:#fbdce0}
 
 /* Static proxy connection details (collapsible) */
 .proxy-conn-row td{background:#fafbff}
