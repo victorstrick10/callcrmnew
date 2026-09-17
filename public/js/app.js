@@ -292,6 +292,16 @@ document.querySelectorAll('.proxy-conn-toggle').forEach((btn) => {
       return `<div class="log-line ${cls}">${esc(l)}</div>`;
     }).join('');
     logEl.hidden = false;
+
+    // On success, auto-close and reload so profile numbers are re-synced and the
+    // next STATIC / STATIC-MHop / GEO is ready to create. Errors stay open to read.
+    if (data.ok) {
+      const note = document.createElement('div');
+      note.className = 'log-line good';
+      note.textContent = '✅ Created — closing & refreshing (profile numbers re-sync on the next create)…';
+      logEl.appendChild(note);
+      setTimeout(close, 1400);
+    }
   };
 
   const run = async (action, fd) => {
