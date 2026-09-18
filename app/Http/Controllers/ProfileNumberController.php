@@ -107,6 +107,7 @@ class ProfileNumberController extends Controller
             } catch (Throwable $e) {
                 $log[] = "✗ {$company->name}: {$e->getMessage()}";
             }
+            usleep(500000); // ~0.5s between companies to stay under Multilogin's rate limit
         }
 
         $message = "Synced profile numbers for {$done} company(ies)".($skipped ? ", {$skipped} skipped" : '').'.';

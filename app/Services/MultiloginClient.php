@@ -265,8 +265,25 @@ class MultiloginClient
                     return [['data' => $response->body()], $path];
                 }
 
+                // Multilogin's cloud API sits behind Cloudflare, which returns
+                // HTTP 429 (error 1015) when we call too often. The first path is
+                // the correct endpoint, so a 429 there means "slow down" — don't
+                // cascade into the other (wrong) paths that just 501; surface a
+                // clear, retryable rate-limit error immediately.
+                if ($response->status() === 429) {
+                    $retry = (int) ($response->header('Retry-After') ?: 0);
+                    throw new \RuntimeException(
+                        'Multilogin API rate limit (HTTP 429 / Cloudflare 1015).'
+                        .($retry > 0 ? " Retry after {$retry}s." : ' Please wait ~1 minute and try again.')
+                    );
+                }
+
                 $errors[] = "{$path}: HTTP {$response->status()} " . substr($response->body(), 0, 180);
             } catch (\Throwable $exc) {
+                // Propagate rate-limit errors straight up (no point trying more paths).
+                if (str_contains($exc->getMessage(), 'rate limit')) {
+                    throw $exc;
+                }
                 $errors[] = "{$path}: " . $exc->getMessage();
             }
         }
@@ -651,6 +668,9 @@ class MultiloginClient
                 'page_len' => $requestedSize,
             ]);
 
+            if ($pagesRequested > 0) {
+                usleep(250000); // ~0.25s between pages to stay under Cloudflare's rate limit
+            }
             [$body, $endpointUsed] = $this->_request_candidates(
                 'POST',
                 $configured,
@@ -689,6 +709,7 @@ class MultiloginClient
                     'offset' => $offset,
                 ]);
 
+                usleep(250000); // ~0.25s between offset pages to stay under the rate limit
                 [$body, $endpointUsed] = $this->_request_candidates(
                     'POST',
                     $configured,

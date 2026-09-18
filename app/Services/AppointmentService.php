@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\BrowserProfile;
 use App\Models\Company;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Throwable;
 
@@ -330,10 +331,10 @@ class AppointmentService
 
         $company = $this->requireCompanyMultilogin($appointment);
 
-        // Sync profile numbers for BOTH companies before allocating, so every
-        // GEO / STATIC / STATIC-MHop action reconciles the latest Multilogin
-        // inventory (created + deleted) across all companies first.
-        $this->syncNumbersForAllCompanies($log);
+        // Reconcile profile numbers for THIS company before allocating (throttled
+        // to avoid hammering Multilogin's rate-limited API on rapid create clicks).
+        // Only the target company matters for this lead's numbering.
+        $this->syncNumbersForCompany($company, $log);
 
         $created = [];
         $createdNames = [];
@@ -457,19 +458,48 @@ class AppointmentService
     private function syncNumbersForAllCompanies(array &$log): void
     {
         foreach (Company::query()->orderBy('name')->get() as $co) {
-            if (! $this->multilogin->isConfiguredFor($co)) {
-                continue;
-            }
+            $this->syncNumbersForCompany($co, $log);
+        }
+    }
 
-            try {
-                $client = $this->multilogin->forCompany($co);
-                $profiles = $client->search_profiles();
-                $result = $this->numbers->syncFromProfiles($co->id, $profiles, ! $client->simulation);
-                $log[] = '↻ Synced numbers · '.$co->name.' ('.($result['numbers_marked'] ?? 0).' used, next '
-                    .$this->numbers->formatNumber($this->numbers->nextNumber($co->id)).')';
-            } catch (Throwable $e) {
-                $log[] = '↻ Number sync failed · '.$co->name.': '.$e->getMessage();
+    /**
+     * Reconcile one company's profile numbers with Multilogin, throttled so
+     * rapid create clicks (and the auto-reload) don't trip Multilogin's
+     * Cloudflare rate limit. A rate-limit error is soft: we keep the existing
+     * number pool and let creation continue.
+     */
+    private function syncNumbersForCompany(Company $co, array &$log, bool $force = false): void
+    {
+        if (! $this->multilogin->isConfiguredFor($co)) {
+            return;
+        }
+
+        $cacheKey = 'ml_numbers_synced_'.$co->id;
+        if (! $force && Cache::has($cacheKey)) {
+            $log[] = '↻ Numbers recently synced · '.$co->name.' (next '
+                .$this->numbers->formatNumber($this->numbers->nextNumber($co->id)).')';
+
+            return;
+        }
+
+        try {
+            $client = $this->multilogin->forCompany($co);
+            $profiles = $client->search_profiles();
+            $result = $this->numbers->syncFromProfiles($co->id, $profiles, ! $client->simulation);
+            // Skip re-syncing this company for a short window.
+            Cache::put($cacheKey, true, now()->addSeconds(90));
+            $log[] = '↻ Synced numbers · '.$co->name.' ('.($result['numbers_marked'] ?? 0).' used, next '
+                .$this->numbers->formatNumber($this->numbers->nextNumber($co->id)).')';
+        } catch (Throwable $e) {
+            if (str_contains($e->getMessage(), 'rate limit')) {
+                // Back off a little so we don't retry immediately on the next click.
+                Cache::put($cacheKey, true, now()->addSeconds(60));
+                $log[] = '↻ Multilogin busy (rate limit) · '.$co->name.' — using existing numbers (next '
+                    .$this->numbers->formatNumber($this->numbers->nextNumber($co->id)).'). Retry shortly.';
+
+                return;
             }
+            $log[] = '↻ Number sync failed · '.$co->name.': '.$e->getMessage();
         }
     }
 

@@ -39,6 +39,7 @@ class SyncProfileNumbersCommand extends Command
             } catch (Throwable $e) {
                 $this->warn("{$company->slug}: {$e->getMessage()}");
             }
+            usleep(500000); // ~0.5s between companies to stay under Multilogin's rate limit
         }
 
         $this->info("Profile-number sync complete: {$done} company(ies) synced, {$skipped} without Multilogin.");
